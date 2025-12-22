@@ -1,7 +1,7 @@
 //! Core types: addresses, locations, pages, and search results
 
 use num_bigint::BigUint;
-use num_traits::{Zero, ToPrimitive};
+use num_traits::{Zero, One, ToPrimitive};
 use num_integer::Integer;
 use serde::{Deserialize, Serialize};
 
@@ -147,7 +147,6 @@ impl HierarchicalAddress {
 
         Some(HierarchicalAddress { mandira, gode, patti, pustaka, puta })
     }
-}
 }
 
 /// Complete location with raw and hierarchical forms
