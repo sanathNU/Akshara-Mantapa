@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { base } from '$app/paths';
+
 	// Example clusters for demonstration
 	const exampleClusters = [
 		{ cluster: 'ಕ', description: 'Simple consonant: ka' },
