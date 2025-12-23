@@ -14,7 +14,7 @@
 	<header>
 		<h1>Technical Documentation</h1>
 		<nav class="breadcrumb">
-			<a href="/">← Back to Library</a>
+			<a href="..">← Back to Library</a>
 		</nav>
 	</header>
 
@@ -324,7 +324,7 @@ Where:
 
 	<footer>
 		<p>
-			<a href="/">Return to the Library</a>
+			<a href="..">Return to the Library</a>
 		</p>
 	</footer>
 </div>

@@ -255,9 +255,9 @@
 		<h1>ಅಕ್ಷರ ಮಂಟಪ</h1>
 		<p class="subtitle">Akshara Mantapa: A Library of Babel for Kannada</p>
 		<nav class="main-nav">
-			<a href="/about">About</a>
+			<a href="about">About</a>
 			<span class="nav-separator">•</span>
-			<a href="/info">Technical Info</a>
+			<a href="info">Technical Info</a>
 		</nav>
 	</header>
 
@@ -779,15 +779,16 @@
 		border: 1px solid #ddd;
 		padding: 1.5em;
 		margin: 1em 0;
+		overflow-x: auto;
 	}
 
 	.content pre {
 		font-family: 'Noto Sans Kannada', 'Tunga', serif;
 		font-size: 0.95em;
 		line-height: 1.8;
-		white-space: pre-wrap;
-		word-wrap: break-word;
+		white-space: pre;
 		margin: 0;
+		min-width: max-content;
 	}
 
 	:global(.search-highlight-yellow) {

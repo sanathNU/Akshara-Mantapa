@@ -3,6 +3,9 @@ const API_BASE = 'http://127.0.0.1:3000/api';
 // Detect if we're in production (GitHub Pages) or development (local)
 const USE_WASM = import.meta.env.PROD;
 
+// Debug: Log which mode we're using
+console.log('API Mode:', USE_WASM ? 'WASM' : 'HTTP API');
+
 export interface HierarchicalDisplay {
 	mandira_hex: string;
 	mandira_kannada?: string;  // Optional Kannada display
@@ -38,8 +41,18 @@ let wasmLibrary: any = null;
 async function getWasmLibrary() {
 	if (!wasmLibrary) {
 		try {
+			console.log('Loading WASM module from ./wasm/akshara_mantapa.js');
 			const wasm = await import('./wasm/akshara_mantapa.js');
+			console.log('WASM module loaded successfully:', wasm);
+
+			// Initialize WASM (loads the .wasm binary)
+			console.log('Initializing WASM binary...');
+			await wasm.default();
+			console.log('WASM binary initialized');
+
+			// Create library instance
 			wasmLibrary = new wasm.WasmLibrary();
+			console.log('WasmLibrary instance created:', wasmLibrary);
 		} catch (error) {
 			console.error('Failed to load WASM module:', error);
 			throw new Error('WASM module not available. Make sure to build and copy WASM files.');
@@ -51,7 +64,9 @@ async function getWasmLibrary() {
 export async function getRandomPage(): Promise<Page> {
 	if (USE_WASM) {
 		const lib = await getWasmLibrary();
-		const pages = lib.browseRandom(1);
+		const jsonString = lib.browseRandom(1);
+		console.log('browseRandom returned JSON:', jsonString);
+		const pages = JSON.parse(jsonString);
 		return pages[0];
 	} else {
 		const response = await fetch(`${API_BASE}/random`);
@@ -63,7 +78,8 @@ export async function getRandomPage(): Promise<Page> {
 export async function getPageByAddress(address: string): Promise<Page> {
 	if (USE_WASM) {
 		const lib = await getWasmLibrary();
-		return lib.getPage(address);
+		const jsonString = lib.getPage(address);
+		return JSON.parse(jsonString);
 	} else {
 		const params = new URLSearchParams({ address });
 		const response = await fetch(`${API_BASE}/page?${params}`);
@@ -126,7 +142,8 @@ export async function getPreviousPage(address: string): Promise<Page | null> {
 export async function searchText(query: string): Promise<SearchResponse> {
 	if (USE_WASM) {
 		const lib = await getWasmLibrary();
-		return lib.findText(query);
+		const jsonString = lib.findText(query);
+		return JSON.parse(jsonString);
 	} else {
 		const params = new URLSearchParams({ q: query });
 		const response = await fetch(`${API_BASE}/search?${params}`);
@@ -138,7 +155,8 @@ export async function searchText(query: string): Promise<SearchResponse> {
 export async function searchTextRandom(query: string): Promise<SearchResponse> {
 	if (USE_WASM) {
 		const lib = await getWasmLibrary();
-		return lib.searchText(query);
+		const jsonString = lib.searchText(query);
+		return JSON.parse(jsonString);
 	} else {
 		const params = new URLSearchParams({ q: query });
 		const response = await fetch(`${API_BASE}/search-random?${params}`);
