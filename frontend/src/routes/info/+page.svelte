@@ -14,7 +14,7 @@
 	<header>
 		<h1>Technical Documentation</h1>
 		<nav class="breadcrumb">
-			<a href="..">← Back to Library</a>
+			<a href="{base}/">← Back to Library</a>
 		</nav>
 	</header>
 

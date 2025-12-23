@@ -23,43 +23,136 @@ impl WasmLibrary {
 
     /// Get a page by its hierarchical address
         #[wasm_bindgen(js_name = getPage)]
-        pub fn get_page(&self, address: &str) -> Result<JsValue, JsValue> {
+        pub fn get_page(&self, address: &str) -> String {
             let location = if address.contains('.') {
-                let h = HierarchicalAddress::from_display_string(address)
-                    .ok_or_else(|| JsValue::from_str("Invalid hierarchical address"))?;
-                Location::from_hierarchical(h)
+                match HierarchicalAddress::from_display_string(address) {
+                    Some(h) => Location::from_hierarchical(h),
+                    None => return serde_json::json!({"error": "Invalid hierarchical address"}).to_string(),
+                }
             } else {
-                Location::from_hex(address)
-                    .ok_or_else(|| JsValue::from_str("Invalid hex address"))?
+                match Location::from_hex(address) {
+                    Some(loc) => loc,
+                    None => return serde_json::json!({"error": "Invalid hex address"}).to_string(),
+                }
             };
 
             let page = self.library.generate_page(&location);
-            to_value(&page).map_err(|e| JsValue::from_str(&e.to_string()))
+            let response = serde_json::json!({
+                "raw_address": page.location.raw_hex,
+                "hierarchical": {
+                    "mandira_hex": page.location.hierarchical.mandira_hex(),
+                    "mandira_kannada": None as Option<String>,
+                    "gode": page.location.hierarchical.gode,
+                    "patti": page.location.hierarchical.patti,
+                    "pustaka": page.location.hierarchical.pustaka,
+                    "puta": page.location.hierarchical.puta,
+                    "display_string": page.location.hierarchical.to_display_string(),
+                },
+                "content": page.content,
+                "formatted_content": page.formatted_content,
+            });
+            serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
         }
 
 
     /// Find the address for given text
     #[wasm_bindgen(js_name = findText)]
-    pub fn find_text(&self, text: &str) -> Result<JsValue, JsValue> {
-        let result = self.library.search(text);
-        to_value(&result).map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    pub fn find_text(&self, text: &str) -> String {
+        match self.library.search(text) {
+            Some(result) => {
+                let page = self.library.generate_page(&result.location);
+                let preview: String = page.content.chars().take(80).collect();
+                let response = serde_json::json!({
+                    "query": result.query,
+                    "found": true,
+                    "location": {
+                        "raw_address": result.location.raw_hex,
+                        "hierarchical": {
+                            "mandira_hex": result.location.hierarchical.mandira_hex(),
+                            "mandira_kannada": None as Option<String>,
+                            "gode": result.location.hierarchical.gode,
+                            "patti": result.location.hierarchical.patti,
+                            "pustaka": result.location.hierarchical.pustaka,
+                            "puta": result.location.hierarchical.puta,
+                            "display_string": result.location.hierarchical.to_display_string(),
+                        },
+                    },
+                    "page_preview": preview,
+                });
+                serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
+            }
+            None => {
+                let response = serde_json::json!({
+                    "query": text,
+                    "found": false,
+                    "location": null,
+                    "page_preview": null,
+                });
+                serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
+            }
+        }
     }
 
     /// Search for text that approximately matches the query
     #[wasm_bindgen(js_name = searchText)]
-    pub fn search_text(&self, query: &str) -> Result<JsValue, JsValue> {
-        let result = self.library.search_at_random_position(query);
-        Ok(to_value(&result)?)
+    pub fn search_text(&self, query: &str) -> String {
+        match self.library.search_at_random_position(query) {
+            Some(result) => {
+                let page = self.library.generate_page(&result.location);
+                let preview: String = page.content.chars().take(80).collect();
+                let response = serde_json::json!({
+                    "query": result.query,
+                    "found": true,
+                    "location": {
+                        "raw_address": result.location.raw_hex,
+                        "hierarchical": {
+                            "mandira_hex": result.location.hierarchical.mandira_hex(),
+                            "mandira_kannada": None as Option<String>,
+                            "gode": result.location.hierarchical.gode,
+                            "patti": result.location.hierarchical.patti,
+                            "pustaka": result.location.hierarchical.pustaka,
+                            "puta": result.location.hierarchical.puta,
+                            "display_string": result.location.hierarchical.to_display_string(),
+                        },
+                    },
+                    "page_preview": preview,
+                });
+                serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
+            }
+            None => {
+                let response = serde_json::json!({
+                    "query": query,
+                    "found": false,
+                    "location": null,
+                    "page_preview": null,
+                });
+                serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
+            }
+        }
     }
 
     /// Browse random pages
     #[wasm_bindgen(js_name = browseRandom)]
-    pub fn browse_random(&self, count: usize) -> Result<JsValue, JsValue> {
-        let mut pages = Vec::with_capacity(count);
+    pub fn browse_random(&self, count: usize) -> String {
+        let mut responses = Vec::with_capacity(count);
         for _ in 0..count {
-            pages.push(self.library.random_page());
+            let page = self.library.random_page();
+            responses.push(serde_json::json!({
+                "raw_address": page.location.raw_hex,
+                "hierarchical": {
+                    "mandira_hex": page.location.hierarchical.mandira_hex(),
+                    "mandira_kannada": None as Option<String>,
+                    "gode": page.location.hierarchical.gode,
+                    "patti": page.location.hierarchical.patti,
+                    "pustaka": page.location.hierarchical.pustaka,
+                    "puta": page.location.hierarchical.puta,
+                    "display_string": page.location.hierarchical.to_display_string(),
+                },
+                "content": page.content,
+                "formatted_content": page.formatted_content,
+            }));
         }
-        to_value(&pages).map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_json::to_string(&responses).unwrap_or_else(|_| "[]".to_string())
     }
 
       /// Get the next page after the given address

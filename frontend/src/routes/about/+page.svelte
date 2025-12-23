@@ -1,9 +1,12 @@
+<script>
+	import { base } from '$app/paths';
+</script>
 
 <div class="page">
 	<header>
 		<h1>ಅಕ್ಷರ ಮಂಟಪ | Akshara-Mantapa</h1>
 		<nav class="breadcrumb">
-			<a href="..">← Back to Library</a>
+			<a href="{base}/">← Back to Library</a>
 		</nav>
 	</header>
 
@@ -66,7 +69,7 @@
 			<h2>Learn More</h2>
 			<ul>
 				<li>
-					<a href="../info">Technical Documentation</a> - How the clustering and encoding works
+					<a href="{base}/info">Technical Documentation</a> - How the clustering and encoding works
 				</li>
 				<li>
 					<a href="https://en.wikipedia.org/wiki/The_Library_of_Babel" target="_blank" rel="noopener">

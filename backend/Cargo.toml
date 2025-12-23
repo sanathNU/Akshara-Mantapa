@@ -16,6 +16,8 @@ num-integer = "0.1"
 # WASM dependencies
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
+js-sys = { version = "0.3", optional = true }
+getrandom = { version = "0.2", features = ["js"], optional = true }
 
 # Server-only dependencies
 axum = { version = "0.7", optional = true }
@@ -24,5 +26,5 @@ tower-http = { version = "0.5", features = ["cors"], optional = true }
 
 [features]
 default = []
-wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
+wasm = ["wasm-bindgen", "serde-wasm-bindgen", "js-sys", "getrandom"]
 server = ["axum", "tokio", "tower-http"]

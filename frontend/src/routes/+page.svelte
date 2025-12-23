@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { 
-		getRandomPage, 
-		getPageByAddress, 
-		getNextPage, 
-		getPreviousPage, 
-		searchText, 
-		searchTextRandom, 
-		type Page, 
-		type LocationResponse 
+	import { base } from '$app/paths';
+	import {
+		getRandomPage,
+		getPageByAddress,
+		getNextPage,
+		getPreviousPage,
+		searchText,
+		searchTextRandom,
+		type Page,
+		type LocationResponse
 	} from '$lib/api';
 
 	let currentPage: Page | null = null;
@@ -255,9 +256,9 @@
 		<h1>ಅಕ್ಷರ ಮಂಟಪ</h1>
 		<p class="subtitle">Akshara Mantapa: A Library of Babel for Kannada</p>
 		<nav class="main-nav">
-			<a href="about">About</a>
+			<a href="{base}/about">About</a>
 			<span class="nav-separator">•</span>
-			<a href="info">Technical Info</a>
+			<a href="{base}/info">Technical Info</a>
 		</nav>
 	</header>
 

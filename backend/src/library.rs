@@ -4,7 +4,27 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 use std::collections::hash_map::RandomState;
 use std::hash::{Hash, Hasher, BuildHasher};
+
+#[cfg(not(feature = "wasm"))]
 use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Get current timestamp in nanoseconds (WASM-compatible)
+fn get_timestamp_nanos() -> u128 {
+    #[cfg(feature = "wasm")]
+    {
+        // Use JavaScript's Date.now() which returns milliseconds
+        let millis = js_sys::Date::now() as u128;
+        millis * 1_000_000 // Convert to nanoseconds
+    }
+
+    #[cfg(not(feature = "wasm"))]
+    {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    }
+}
 
 use crate::alphabet::GraphemeAlphabet;
 use crate::bijection::BijectionEngine;
@@ -86,10 +106,7 @@ impl LibraryOfBabel {
         let max_position = CLUSTERS_PER_PAGE - query_indices.len();
 
         let state = RandomState::new();
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
+        let now = get_timestamp_nanos();
 
         let mut hasher = state.build_hasher();
         now.hash(&mut hasher);
@@ -132,10 +149,7 @@ impl LibraryOfBabel {
     /// Generate a random page
     pub fn random_page(&self) -> Page {
         let state = RandomState::new();
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
+        let now = get_timestamp_nanos();
 
         let mut hasher = state.build_hasher();
         now.hash(&mut hasher);
