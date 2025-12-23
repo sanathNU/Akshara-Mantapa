@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 use serde_wasm_bindgen::{from_value, to_value};
-use crate::{LibraryOfBabel, HierarchicalAddress, Page, SearchResult};
+use crate::{LibraryOfBabel, Location, HierarchicalAddress, Page, SearchResult};
+
 
 #[wasm_bindgen]
 pub struct WasmLibrary {
@@ -21,36 +22,45 @@ impl WasmLibrary {
     }
 
     /// Get a page by its hierarchical address
-    #[wasm_bindgen(js_name = getPage)]
-    pub fn get_page(&self, address: JsValue) -> Result<JsValue, JsValue> {
-        let address: HierarchicalAddress = from_value(address)
-            .map_err(|e| JsValue::from_str(&format!("Invalid address: {}", e)))?;
+        #[wasm_bindgen(js_name = getPage)]
+        pub fn get_page(&self, address: &str) -> Result<JsValue, JsValue> {
+            let location = if address.contains('.') {
+                let h = HierarchicalAddress::from_display_string(address)
+                    .ok_or_else(|| JsValue::from_str("Invalid hierarchical address"))?;
+                Location::from_hierarchical(h)
+            } else {
+                Location::from_hex(address)
+                    .ok_or_else(|| JsValue::from_str("Invalid hex address"))?
+            };
 
-        let page = self.library.get_page(&address);
-        to_value(&page).map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
-    }
+            let page = self.library.generate_page(&location);
+            to_value(&page).map_err(|e| JsValue::from_str(&e.to_string()))
+        }
+
 
     /// Find the address for given text
     #[wasm_bindgen(js_name = findText)]
     pub fn find_text(&self, text: &str) -> Result<JsValue, JsValue> {
-        let result = self.library.find_text(text);
+        let result = self.library.search(text);
         to_value(&result).map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 
     /// Search for text that approximately matches the query
     #[wasm_bindgen(js_name = searchText)]
-    pub fn search_text(&self, query: &str, limit: usize) -> Result<JsValue, JsValue> {
-        let results = self.library.search_text(query, limit);
-        to_value(&results).map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    pub fn search_text(&self, query: &str) -> Result<JsValue, JsValue> {
+        let result = self.library.search_at_random_position(query);
+        Ok(to_value(&result)?)
     }
 
     /// Browse random pages
     #[wasm_bindgen(js_name = browseRandom)]
     pub fn browse_random(&self, count: usize) -> Result<JsValue, JsValue> {
-        let pages = self.library.browse_random(count);
-        to_value(&pages).map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+        let mut pages = Vec::with_capacity(count);
+        for _ in 0..count {
+            pages.push(self.library.random_page());
+        }
+        to_value(&pages).map_err(|e| JsValue::from_str(&e.to_string()))
     }
-
 
       /// Get the next page after the given address
     #[wasm_bindgen]
@@ -63,7 +73,7 @@ impl WasmLibrary {
 
         match location {
             Some(loc) => {
-                let page = self.inner.next_page(&loc);
+                let page = self.library.next_page(&loc);
                 serde_json::json!({
                     "success": true,
                     "raw_address": page.location.raw_hex,
@@ -99,7 +109,7 @@ impl WasmLibrary {
 
         match location {
             Some(loc) => {
-                match self.inner.previous_page(&loc) {
+                match self.library.previous_page(&loc) {
                     Some(page) => {
                         serde_json::json!({
                             "success": true,
