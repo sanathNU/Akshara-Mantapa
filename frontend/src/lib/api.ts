@@ -103,7 +103,10 @@ export async function getNextPage(address: string): Promise<Page> {
 		};
 	} else {
 		const params = new URLSearchParams({ address });
-		const response = await fetch(`${API_BASE}/page/next?${params}`);
+		// const response = await fetch(`${API_BASE}/page-next?${params}`);
+        const url = `${API_BASE}/page-next?${params}`;
+        console.log('Fetching:', url); 
+		const response = await fetch(url);
 		if (!response.ok) throw new Error('Failed to fetch next page');
 		return response.json();
 	}
@@ -127,7 +130,7 @@ export async function getPreviousPage(address: string): Promise<Page | null> {
 		};
 	} else {
 		const params = new URLSearchParams({ address });
-		const response = await fetch(`${API_BASE}/page/previous?${params}`);
+		const response = await fetch(`${API_BASE}/page-previous?${params}`);
 
 		if (response.status === 404) {
 			// At first page

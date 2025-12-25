@@ -17,6 +17,7 @@
 	let searchQuery = '';
 	let searchInfo = '';
 	let loading = false;
+	let navigating = false; // Separate state for page navigation
 	let error = '';
 	let address = '';
 	let copyMessage = '';
@@ -88,10 +89,10 @@
 	}
 
 	async function loadNextPage() {
-		if (!currentPage) return;
+		if (!currentPage || navigating) return;
 
 		try {
-			loading = true;
+			navigating = true;
 			error = '';
 			currentPage = await getNextPage(currentPage.raw_address);
 			isAtFirstPage = false;
@@ -99,15 +100,15 @@
 			error = 'Failed to load next page.';
 			console.error(e);
 		} finally {
-			loading = false;
+			navigating = false;
 		}
 	}
 
 	async function loadPreviousPage() {
-		if (!currentPage || isAtFirstPage) return;
+		if (!currentPage || isAtFirstPage || navigating) return;
 
 		try {
-			loading = true;
+			navigating = true;
 			error = '';
 			const prevPage = await getPreviousPage(currentPage.raw_address);
 			if (prevPage) {
@@ -120,7 +121,7 @@
 			error = 'Failed to load previous page.';
 			console.error(e);
 		} finally {
-			loading = false;
+			navigating = false;
 		}
 	}
 
@@ -200,50 +201,47 @@
 		if (!lastSearchedText) return content;
 
 		if (forSearchResult) {
-			if (isRandomSearch) {
-				let searchIndex = content.indexOf(lastSearchedText);
+			// Find the search text in content (may be split by newlines from formatting)
+			const highlightClass = isRandomSearch ? 'search-highlight-yellow' : 'search-highlight-blue';
+			
+			let searchIndex = content.indexOf(lastSearchedText);
 
-				if (searchIndex === -1) {
-					const removeSpaces = (str: string) => str.replace(/\s/g, '');
-					const searchNoSpaces = removeSpaces(lastSearchedText);
-					const contentNoSpaces = removeSpaces(content);
-					const noSpaceIndex = contentNoSpaces.indexOf(searchNoSpaces);
+			if (searchIndex !== -1) {
+				// Direct match found
+				const before = content.substring(0, searchIndex);
+				const matchText = content.substring(searchIndex, searchIndex + lastSearchedText.length);
+				const after = content.substring(searchIndex + lastSearchedText.length);
+				return before + `<mark class="${highlightClass}">${matchText}</mark>` + after;
+			}
 
-					if (noSpaceIndex !== -1) {
-						let contentPos = 0;
-						let noSpacePos = 0;
+			// Try matching ignoring whitespace/newlines from formatting
+			const removeSpaces = (str: string) => str.replace(/\s/g, '');
+			const searchNoSpaces = removeSpaces(lastSearchedText);
+			const contentNoSpaces = removeSpaces(content);
+			const noSpaceIndex = contentNoSpaces.indexOf(searchNoSpaces);
 
-						while (noSpacePos < noSpaceIndex && contentPos < content.length) {
-							if (!/\s/.test(content[contentPos])) noSpacePos++;
-							contentPos++;
-						}
+			if (noSpaceIndex !== -1) {
+				let contentPos = 0;
+				let noSpacePos = 0;
 
-						const startPos = contentPos;
-						let searchCharsFound = 0;
-
-						while (searchCharsFound < searchNoSpaces.length && contentPos < content.length) {
-							if (!/\s/.test(content[contentPos])) searchCharsFound++;
-							contentPos++;
-						}
-
-						const endPos = contentPos;
-						const before = content.substring(0, startPos);
-						const matchText = content.substring(startPos, endPos);
-						const after = content.substring(endPos);
-						return before + `<mark class="search-highlight-yellow">${matchText}</mark>` + after;
-					}
-				} else {
-					const before = content.substring(0, searchIndex);
-					const matchText = content.substring(searchIndex, searchIndex + lastSearchedText.length);
-					const after = content.substring(searchIndex + lastSearchedText.length);
-					return before + `<mark class="search-highlight-yellow">${matchText}</mark>` + after;
+				while (noSpacePos < noSpaceIndex && contentPos < content.length) {
+					if (!/\s/.test(content[contentPos])) noSpacePos++;
+					contentPos++;
 				}
-			} else {
-				const mandiraLength = 410;
-				const mandiraEnd = Math.min(mandiraLength, content.length);
-				const mandiraContent = content.substring(0, mandiraEnd);
-				const rest = content.substring(mandiraEnd);
-				return `<mark class="search-highlight-blue">${mandiraContent}</mark>` + rest;
+
+				const startPos = contentPos;
+				let searchCharsFound = 0;
+
+				while (searchCharsFound < searchNoSpaces.length && contentPos < content.length) {
+					if (!/\s/.test(content[contentPos])) searchCharsFound++;
+					contentPos++;
+				}
+
+				const endPos = contentPos;
+				const before = content.substring(0, startPos);
+				const matchText = content.substring(startPos, endPos);
+				const after = content.substring(endPos);
+				return before + `<mark class="${highlightClass}">${matchText}</mark>` + after;
 			}
 		}
 
@@ -262,6 +260,10 @@
 		</nav>
 	</header>
 
+	<div class="banner">
+		<img src="{base}/main-picture.png" alt="Akshara Mantapa - A Library of Babel for Kannada" />
+	</div>
+
 	<article>
 		<section class="intro">
 			<p>
@@ -273,21 +275,9 @@
 
 		<section class="controls">
 			<div class="control-row">
-				<button on:click={loadRandomPage} disabled={loading}>Random Page</button>
-			</div>
-
-			<div class="control-row">
-				<textarea
-					class="kannada-search-input"
-					class:expanded={searchExpanded || searchQuery.length > 0}
-					bind:value={searchQuery}
-					placeholder="Search for Kannada text..."
-					on:focus={() => searchExpanded = true}
-					on:blur={() => { if (!searchQuery) searchExpanded = false }}
-					on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && performSearch()}
-				></textarea>
-				<button on:click={performSearch} disabled={loading}>Search</button>
-				<button on:click={performRandomSearch} disabled={loading} title="Find text at random position within a page">Random Position</button>
+				<button on:click={loadRandomPage} disabled={loading}>
+					{#if loading && !currentPage}Loading...{:else}Random Page{/if}
+				</button>
 			</div>
 
 			<details>
@@ -303,30 +293,35 @@
 			<aside class="error">{error}</aside>
 		{/if}
 
-		{#if loading}
+		{#if loading && !currentPage}
 			<div class="loading">Loading...</div>
 		{/if}
 
 		{#if currentPage}
-			<section class="page-display">
+			<section class="page-display" class:is-navigating={navigating}>
 				<div class="page-header">
-					<h2>Page Content</h2>
+					<h2>
+						Page Content
+						{#if navigating}
+							<span class="loading-indicator">⟳</span>
+						{/if}
+					</h2>
 					<div class="page-navigation">
 						<button 
 							class="nav-btn" 
 							on:click={loadPreviousPage} 
-							disabled={loading || isAtFirstPage}
+							disabled={navigating || isAtFirstPage}
 							title={isAtFirstPage ? "Already at first page" : "Previous page"}
 						>
-							← Prev
+							{#if navigating}⟳{:else}← Prev{/if}
 						</button>
 						<button 
 							class="nav-btn" 
 							on:click={loadNextPage} 
-							disabled={loading}
+							disabled={navigating}
 							title="Next page"
 						>
-							Next →
+							{#if navigating}⟳{:else}Next →{/if}
 						</button>
 					</div>
 				</div>
@@ -366,20 +361,37 @@
 					<button 
 						class="nav-btn" 
 						on:click={loadPreviousPage} 
-						disabled={loading || isAtFirstPage}
+						disabled={navigating || isAtFirstPage}
 					>
-						← Previous Page
+						{#if navigating}⟳ Loading...{:else}← Previous Page{/if}
 					</button>
 					<button 
 						class="nav-btn" 
 						on:click={loadNextPage} 
-						disabled={loading}
+						disabled={navigating}
 					>
-						Next Page →
+						{#if navigating}⟳ Loading...{:else}Next Page →{/if}
 					</button>
 				</div>
 			</section>
 		{/if}
+
+		<section class="search-section">
+			<h2>Search Kannada Text</h2>
+			<div class="control-row">
+				<textarea
+					class="kannada-search-input"
+					class:expanded={searchExpanded || searchQuery.length > 0}
+					bind:value={searchQuery}
+					placeholder="Search for Kannada text..."
+					on:focus={() => searchExpanded = true}
+					on:blur={() => { if (!searchQuery) searchExpanded = false }}
+					on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && performSearch()}
+				></textarea>
+				<button on:click={performSearch} disabled={loading}>Search</button>
+				<button on:click={performRandomSearch} disabled={loading} title="Find text at a random position within a page">Find Again</button>
+			</div>
+		</section>
 
 		{#if searchInfo}
 			<aside class="search-info-message">{searchInfo}</aside>
@@ -497,6 +509,18 @@
 		color: #ccc;
 	}
 
+	.banner {
+		margin: 1.5em 0 2em 0;
+		text-align: center;
+	}
+
+	.banner img {
+		max-width: 100%;
+		height: auto;
+		border: 1px solid #ddd;
+		border-radius: 12px;
+	}
+
 	article {
 		margin-bottom: 2em;
 	}
@@ -521,6 +545,17 @@
 		border: 1px solid #ddd;
 		padding: 1.5em;
 		margin: 2em 0;
+	}
+
+	.search-section {
+		background: #fafafa;
+		border: 1px solid #ddd;
+		padding: 1.5em;
+		margin: 2em 0;
+	}
+
+	.search-section h2 {
+		margin-bottom: 1em;
 	}
 
 	.control-row {
@@ -576,6 +611,7 @@
 		background: #fff;
 		color: #000;
 		cursor: pointer;
+		transition: background 0.15s ease, color 0.15s ease;
 	}
 
 	button:hover:not(:disabled) {
@@ -640,6 +676,12 @@
 
 	.page-display {
 		margin: 2em 0;
+		transition: opacity 0.2s ease;
+	}
+
+	.page-display.is-navigating {
+		opacity: 0.6;
+		pointer-events: none;
 	}
 
 	.page-header {
@@ -651,6 +693,18 @@
 		border-bottom: 1px solid #eee;
 	}
 
+	.loading-indicator {
+		display: inline-block;
+		animation: spin 1s linear infinite;
+		margin-left: 0.5em;
+		font-size: 0.9em;
+	}
+
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
+	}
+
 	.page-navigation {
 		display: flex;
 		gap: 0.5em;
@@ -659,6 +713,7 @@
 	.nav-btn {
 		font-size: 0.85em;
 		padding: 0.4em 0.8em;
+		min-width: 5em;
 	}
 
 	.page-navigation-bottom {

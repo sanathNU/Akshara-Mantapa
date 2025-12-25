@@ -1,4 +1,7 @@
 # Akshara-Mantapa
+
+![Akshara Mantapa Banner](frontend/static/main-picture.png)
+
 ಅಕ್ಷರ ಮಂಟಪ. A Library of Babel for Kannada.
 
 An infinite library containing all possible combinations of Kannada text, inspired by Jorge Luis Borges' short story "The Library of Babel".
@@ -10,9 +13,12 @@ This project implements a digital version of the Library of Babel for the Kannad
 ## Features
 
 - **Browse Random Pages**: Explore random pages from the infinite library
-- **Search for Text**: Find the exact location of any Kannada text instantly
+- **Search for Text**: Find the exact location of any Kannada text instantly (highlighted in blue)
+- **Find Again**: Search for text at random positions within pages (highlighted in yellow)
 - **Navigate by Address**: Jump to any page using hierarchical or hex addresses
+- **Page Navigation**: Browse through pages with Previous/Next buttons with smooth transitions
 - **Hierarchical Display**: Addresses shown as `mandira.gode.patti.pustaka.puta` (Room.Wall.Shelf.Book.Page)
+- **Mandira as Kannada**: Room identifiers displayed in Kannada script for smaller addresses
 - **Bijective Mapping**: Single invertible system using multiplicative inverse modular arithmetic
 - **Rich Kannada Script**: Uses **56,028 grapheme clusters** including:
   - Consonants, vowels, and their combinations
@@ -20,8 +26,7 @@ This project implements a digital version of the Library of Babel for the Kannad
   - Conjuncts (consonant clusters like ಕ್ಷ)
   - Punctuation and spaces
 - **Minimalistic Design**: Clean, scholarly aesthetic with serif typography
-- **Search Highlighting**: Found text is highlighted in yellow when viewing pages
-- **Random Position Search**: Find text at random positions within pages
+- **Dual Mode**: HTTP API for development, WASM for production (GitHub Pages)
 
 ## The Mathematics
 
@@ -81,7 +86,7 @@ Components:
 ```
 
 ### Mandira as Kannada
-The mandira (room name) can be displayed as ~399 Kannada grapheme clusters:
+For smaller addresses (< 10,000 bits), the mandira (room name) is displayed as Kannada grapheme clusters:
 ```
 ಕವಿರಾಜಮಾರ್ಗದಲ್ಲಿಯೇಕನ್ನಡನಾಡಿನ...
 ```
@@ -95,6 +100,7 @@ The mandira (room name) can be displayed as ~399 Kannada grapheme clusters:
 - **num-integer** - Integer operations (GCD, division with remainder)
 - **Serde** - JSON serialization
 - **Tower-HTTP** - CORS and middleware
+- **wasm-bindgen** - WASM bindings for browser deployment
 
 ### Frontend
 - **SvelteKit** - Modern, reactive UI framework
@@ -125,9 +131,7 @@ Akshara-Mantapa/
 ├── frontend/                    # SvelteKit frontend
 │   ├── src/
 │   │   ├── lib/
-│   │   │   ├── assets/
-│   │   │   │   ├── favicon.svg
-│   │   │   │   └── favicon2.svg
+│   │   │   ├── wasm/            # Compiled WASM files (for production)
 │   │   │   ├── api.ts           # API client / WASM wrapper
 │   │   │   └── index.ts         # Lib exports
 │   │   └── routes/
@@ -136,10 +140,11 @@ Akshara-Mantapa/
 │   │       ├── info/
 │   │       │   └── +page.svelte # Technical documentation
 │   │       ├── +layout.svelte   # Root layout with fonts
-│   │       ├── +layout.ts       # Layout config
+│   │       ├── +layout.ts       # Layout config (prerender, ssr)
 │   │       └── +page.svelte     # Main page
 │   ├── static/
-│   │   ├── main-picture.png
+│   │   ├── favicon.svg          # Site favicon
+│   │   ├── main-picture.png     # Banner image
 │   │   └── robots.txt
 │   ├── app.html
 │   ├── svelte.config.js
@@ -154,25 +159,27 @@ Akshara-Mantapa/
 
 - **Rust** (1.70+): Install from [rustup.rs](https://rustup.rs)
 - **Node.js** (18+): Install from [nodejs.org](https://nodejs.org)
-- **npm** or **pnpm**: Comes with Node.js
+- **wasm-pack**: Install with `cargo install wasm-pack`
 
-### Backend Setup
+### Development Mode (HTTP API)
+
+#### Backend Setup
 
 1. Navigate to the backend directory:
    ```bash
    cd backend
    ```
 
-2. Build and run the backend:
+2. Build and run the server:
    ```bash
-   cargo run --release
+   cargo run --bin server --release
    ```
 
    The backend will start on `http://127.0.0.1:3000`
 
    First startup takes a few seconds to compute the bijection constants (C and I).
 
-### Frontend Setup
+#### Frontend Setup
 
 1. Navigate to the frontend directory:
    ```bash
@@ -191,7 +198,28 @@ Akshara-Mantapa/
 
    The frontend will start on `http://localhost:5173`
 
-4. Open your browser and visit `http://localhost:5173`
+### Production Mode (WASM)
+
+For static deployment (e.g., GitHub Pages), the frontend uses WASM instead of HTTP API.
+
+1. Build WASM:
+   ```bash
+   cd backend
+   wasm-pack build --target web --features wasm
+   ```
+
+2. Copy WASM files to frontend:
+   ```bash
+   cp -r pkg/* ../frontend/src/lib/wasm/
+   ```
+
+3. Build frontend:
+   ```bash
+   cd frontend
+   npm run build
+   ```
+
+4. The `build/` folder can be deployed to any static host.
 
 ## API Endpoints
 
@@ -200,101 +228,29 @@ The backend exposes the following REST API:
 ### `GET /`
 Health check endpoint.
 
-**Response:**
-```json
-{
-  "status": "ok",
-  "message": "ಕನ್ನಡ Library of Babel API (Bijective)",
-  "alphabet_size": 56028,
-  "page_length": 400
-}
-```
-
 ### `GET /api/info`
 Returns library statistics.
-
-**Response:**
-```json
-{
-  "alphabet_size": 56028,
-  "clusters_per_page": 400,
-  "pages_per_book": 410,
-  "books_per_shelf": 32,
-  "shelves_per_wall": 5,
-  "walls_per_room": 4,
-  "total_pages": "56028^400 ≈ 10^1899",
-  "address_bits": 6308
-}
-```
 
 ### `GET /api/random`
 Generates a random page from the library.
 
-**Response:**
-```json
-{
-  "raw_address": "16e24352a3f3e31a...",
-  "hierarchical": {
-    "mandira_hex": "5b7230be6037...",
-    "mandira_kannada": "ಖ್ಟೂಃಞ್ಞನ್ಥೃಃ...",
-    "gode": 1,
-    "patti": 4,
-    "pustaka": 29,
-    "puta": 289
-  },
-  "content": "ಖ್ಟೂಃಞ್ಞನ್ಥೃಃ...",
-  "formatted_content": "..."
-}
-```
-
-### `GET /api/search?q=<kannada_text>`
-Finds the exact location of any Kannada text.
-
-**Query Parameters:**
-- `q` (string): Kannada text to search for
-
-**Response:**
-```json
-{
-  "query": "ಕನ್ನಡ",
-  "found": true,
-  "location": {
-    "raw_address": "93cebf0ea1c7096f...",
-    "hierarchical": { /* hierarchical address */ }
-  },
-  "page_preview": "ಕನ್ನಡ                    ..."
-}
-```
-
-### `GET /api/search-random?q=<text>`
-Finds text at a random position within a page (for queries < 400 clusters).
-
-**Response:** Same structure as `/api/search`
-
 ### `GET /api/page?address=<address>`
 Retrieves a page by address (accepts both hex and hierarchical format).
 
-**Query Parameters:**
-- `address` (string): Either raw hex or hierarchical format
+### `GET /api/page-next?address=<address>`
+Gets the next page after the given address.
 
-**Examples:**
-```
-/api/page?address=93cebf0ea1c7096fe3de...
-/api/page?address=24ea75265eda0bd902b6.4.4.23.325
-```
+### `GET /api/page-previous?address=<address>`
+Gets the previous page before the given address (returns 404 if at first page).
+
+### `GET /api/search?q=<kannada_text>`
+Finds the exact location of any Kannada text (text appears at start of page).
+
+### `GET /api/search-random?q=<text>`
+Finds text at a random position within a page.
 
 ### `GET /api/verify?address=<addr>&text=<text>`
-Verifies that a text appears at the given address (proves bijectivity).
-
-**Response:**
-```json
-{
-  "verified": true,
-  "address": "...",
-  "expected_text": "ಕನ್ನಡ",
-  "actual_start": "ಕನ್ನಡ"
-}
-```
+Verifies that a text appears at the given address.
 
 ## How It Works
 
@@ -317,6 +273,17 @@ The system uses **multiplicative inverse modular arithmetic** to create a perfec
    - Convert back to base-56,028 indices
    - Map indices to grapheme clusters
    - Format as 25 clusters per line
+
+### Dev vs Production Mode
+
+The frontend automatically detects its environment:
+
+```typescript
+const USE_WASM = import.meta.env.PROD;
+```
+
+- **Development**: Uses HTTP fetch to `localhost:3000` backend
+- **Production**: Loads WASM module directly in browser
 
 ### Kannada Character Set
 
@@ -343,6 +310,7 @@ The interface follows a minimalistic, scholarly aesthetic:
 - High contrast (black on white)
 - Generous whitespace
 - Clean borders and subtle separators
+- Smooth page transitions with loading indicators
 - Emphasis on readability and content
 - Kannada-first design with proper font rendering
 
@@ -355,30 +323,6 @@ The interface follows a minimalistic, scholarly aesthetic:
 - **First Startup**: ~5 seconds to compute bijection constants
 - **Subsequent Requests**: Milliseconds
 
-## Development
-
-### Running Tests
-
-Backend tests:
-```bash
-cd backend
-cargo test
-```
-
-### Building for Production
-
-Backend:
-```bash
-cd backend
-cargo build --release
-```
-
-Frontend:
-```bash
-cd frontend
-npm run build
-```
-
 ## Future Enhancements
 
 1. **Precompute Constants** - Save C and I to files for instant startup
@@ -389,7 +333,8 @@ npm run build
 6. **Dark Mode** - Theme toggle for different lighting conditions
 7. **Export Pages** - Download as PDF or text
 8. **Advanced Search** - Regex or pattern-based search
-9. **Page Navigation** - Previous/next page in hierarchical order
+9. **Bookmarks** - Save favorite pages or locations
+10. **Share Links** - Generate shareable URLs for specific pages
 
 ## Philosophy
 
