@@ -4,7 +4,7 @@
 
 <div class="page">
 	<header>
-		<h1>ಅಕ್ಷರ ಮಂಟಪ | Akshara-Mantapa</h1>
+		<h1>∞ ಅಕ್ಷರ ಮಂಟಪ | Akshara-Mantapa</h1>
 		<nav class="breadcrumb">
 			<a href="{base}/">← Back to Library</a>
 		</nav>
@@ -65,30 +65,97 @@
 			</p>
 		</section>
 
+		<section class="monkey-theorem">
+			<h2>The Infinite Monkey Theorem</h2>
+			<p>
+				The Library of Babel is closely related to the famous <strong>Infinite Monkey Theorem</strong>, 
+				the idea that a monkey hitting keys at random on a typewriter for an infinite amount of time will 
+				almost surely type any given text, including the complete works of Shakespeare.
+			</p>
+			<p>
+				But here's the twist: Akshara-Mantapa doesn't need infinite time or random chance. Through 
+				deterministic mathematics, every possible text <em>already exists</em> at a calculable address. 
+				The monkey has already typed everything. We just need to know where to look.
+			</p>
+			<p>
+				This transforms a probabilistic thought experiment into a navigable reality. Every Kannada 
+				poem ever written, every poem that could be written, every nonsensical string of characters, 
+				all exist simultaneously, waiting to be discovered.
+			</p>
+		</section>
+
+		<section class="why-section">
+			<h2>Why Build This?</h2>
+			
+			<h3>ಕನ್ನಡ, My Mother Tongue</h3>
+			<p>
+				Kannada is my mother tongue, and I wanted a way to think about infinity in that language. 
+				There's something profound about knowing that every possible expression in your native 
+				script exists somewhere in a mathematical structure. Every story my grandmother could tell, 
+				every poem yet to be composed, every thought waiting to be articulated.
+			</p>
+
+			<h3>The Technical Challenge</h3>
+			<p>
+				Implementing a Library of Babel for an Indic script presents unique challenges that don't 
+				exist for Latin alphabets. Kannada uses grapheme clusters, which are complex combinations of consonants, 
+				vowels, matras, and modifiers that behave as single visual units. Building a bijective mapping 
+				over 56,028 such clusters, ensuring mathematical correctness with around 6,300-bit arithmetic, and 
+				making it all run efficiently in both native and WebAssembly contexts were irresistible 
+				puzzles to solve.
+			</p>
+
+			<h3>Because Why Not?</h3>
+			<p>
+				It's an infinite Pandora's box to build, implement, and improvise upon. The beauty of such 
+				a project is that it's never truly finished. There's always another optimization, another 
+				feature, another way to explore the incomprehensible vastness. Sometimes the best reason 
+				to build something is the sheer joy of building it.
+			</p>
+		</section>
+
 		<section class="links">
 			<h2>Learn More</h2>
 			<ul>
 				<li>
-					<a href="{base}/info">Technical Documentation</a> - How the clustering and encoding works
+					<a href="{base}/info">Technical Documentation</a> for how the clustering and encoding works
 				</li>
 				<li>
 					<a href="https://en.wikipedia.org/wiki/The_Library_of_Babel" target="_blank" rel="noopener">
 						Original Story
-					</a> - Read Borges' short story
+					</a> to read Borges' short story
 				</li>
 				<li>
 					<a href="https://libraryofbabel.info" target="_blank" rel="noopener">
 						Original Implementation
-					</a> - Jonathan Basile's English version
+					</a> by Jonathan Basile for the English version
+				</li>
+				<li>
+					<a href="https://youtu.be/GDrBIKOR01c?t=1032" target="_blank" rel="noopener">
+						Vsauce Explanation
+					</a> where Michael Stevens explores the Library of Babel and infinity
+				</li>
+				<li>
+					<a href="https://en.wikipedia.org/wiki/Infinite_monkey_theorem" target="_blank" rel="noopener">
+						Infinite Monkey Theorem
+					</a> on the probabilistic thought experiment
 				</li>
 			</ul>
 		</section>
 	</article>
 
 	<footer>
-		<p>
-			<a href="..">Return to the Library</a>
+		<p class="return-link">
+			<a href="{base}/">Return to the Library</a>
 		</p>
+		<div class="made-by">
+			<p>Made by <strong>Sanath</strong></p>
+			<p class="links">
+				<a href="https://github.com/sanathNU" target="_blank" rel="noopener">GitHub</a>
+				<span class="separator">•</span>
+				<a href="https://sanathnu.github.io/TechnicaInsania/" target="_blank" rel="noopener">Website</a>
+			</p>
+		</div>
 	</footer>
 </div>
 
@@ -140,6 +207,13 @@
 		padding-bottom: 0.25em;
 	}
 
+	h3 {
+		font-size: 1.1em;
+		font-weight: 600;
+		margin: 1.25em 0 0.5em 0;
+		color: #333;
+	}
+
 	section {
 		margin: 2em 0;
 	}
@@ -153,7 +227,7 @@
 
 	.kannada-section h2 {
 		font-family: 'Noto Sans Kannada', serif;
-		color: #c30;
+		color: #1d4ed8;
 		border-bottom-color: #e0e0e0;
 	}
 
@@ -164,7 +238,9 @@
 	}
 
 	.intro p,
-	.philosophy p {
+	.philosophy p,
+	.monkey-theorem p,
+	.why-section p {
 		text-align: justify;
 		margin: 0 0 1em 0;
 	}
@@ -182,6 +258,37 @@
 		font-style: normal;
 		font-size: 0.9em;
 		color: #666;
+		border-top: none;
+		padding-top: 0;
+		text-align: left;
+	}
+
+	.monkey-theorem {
+		background: #fffbeb;
+		border: 1px solid #fcd34d;
+		padding: 1.5em;
+		margin: 2em 0;
+	}
+
+	.monkey-theorem h2 {
+		color: #b45309;
+		border-bottom-color: #fcd34d;
+	}
+
+	.why-section {
+		background: #f0fdf4;
+		border: 1px solid #86efac;
+		padding: 1.5em;
+		margin: 2em 0;
+	}
+
+	.why-section h2 {
+		color: #166534;
+		border-bottom-color: #86efac;
+	}
+
+	.why-section h3 {
+		color: #15803d;
 	}
 
 	.links ul {
@@ -214,20 +321,47 @@
 
 	footer {
 		border-top: 1px solid #ccc;
-		padding-top: 1em;
+		padding-top: 1.5em;
 		margin-top: 3em;
 		font-size: 0.9em;
 		color: #666;
 		text-align: center;
 	}
 
-	footer a {
-		color: inherit;
+	.made-by {
+		margin-top: 1em;
+	}
+
+	.made-by p {
+		margin: 0.25em 0;
+	}
+
+	.made-by strong {
+		color: #333;
+	}
+
+	.made-by .links a {
+		color: #1d4ed8;
+		text-decoration: none;
+		border-bottom: 1px solid #93c5fd;
+	}
+
+	.made-by .links a:hover {
+		border-bottom-color: #1d4ed8;
+	}
+
+	.made-by .separator {
+		margin: 0 0.75em;
+		color: #ccc;
+	}
+
+	.return-link a {
+		color: #666;
 		text-decoration: none;
 		border-bottom: 1px dotted #999;
 	}
 
-	footer a:hover {
+	.return-link a:hover {
 		border-bottom-style: solid;
 		color: #000;
 	}
@@ -239,10 +373,6 @@
 
 		h1 {
 			font-size: 1.5em;
-		}
-
-		.image-grid {
-			grid-template-columns: 1fr;
 		}
 	}
 </style>

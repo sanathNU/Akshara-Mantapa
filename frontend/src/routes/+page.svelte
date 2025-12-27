@@ -443,6 +443,14 @@
 				Jorge Luis Borges, 1941
 			</a>
 		</p>
+		<div class="made-by">
+			<p>Made by <strong>Sanath</strong></p>
+			<p class="made-by-links">
+				<a href="https://github.com/sanathNU" target="_blank" rel="noopener">GitHub</a>
+				<span class="separator">•</span>
+				<a href="https://sanathnu.github.io/TechnicaInsania/" target="_blank" rel="noopener">Website</a>
+			</p>
+		</div>
 	</footer>
 </div>
 
@@ -733,22 +741,22 @@
 
 	.mandira-kannada {
 		font-family: 'Noto Sans Kannada', serif;
-		background: #fafafa;
+		background: #f8fafc;
 		padding: 0.75em;
 		margin: 0.5em 0;
-		border-left: 3px solid #c30;
-		color: #c30;
+		border-left: 3px solid #2563eb;
+		color: #1d4ed8;
 		font-size: 1.05em;
 		line-height: 1.6;
 	}
 
 	.mandira-kannada-small {
 		font-family: 'Noto Sans Kannada', serif;
-		background: #fafafa;
+		background: #f8fafc;
 		padding: 0.5em;
 		margin: 0.5em 0;
-		border-left: 3px solid #c30;
-		color: #c30;
+		border-left: 3px solid #2563eb;
+		color: #1d4ed8;
 		font-size: 0.95em;
 		line-height: 1.6;
 	}
@@ -881,23 +889,47 @@
 
 	footer {
 		border-top: 1px solid #ccc;
-		padding-top: 1em;
+		padding-top: 1.5em;
 		margin-top: 3em;
 		font-size: 0.9em;
 		color: #666;
+		text-align: center;
 	}
 
-	footer p {
-		margin: 0;
+	.made-by {
+		margin-top: 1em;
 	}
 
-	footer a {
-		color: inherit;
+	.made-by p {
+		margin: 0.25em 0;
+	}
+
+	.made-by strong {
+		color: #333;
+	}
+
+	.made-by-links a {
+		color: #1d4ed8;
+		text-decoration: none;
+		border-bottom: 1px solid #93c5fd;
+	}
+
+	.made-by-links a:hover {
+		border-bottom-color: #1d4ed8;
+	}
+
+	.separator {
+		margin: 0 0.75em;
+		color: #ccc;
+	}
+
+	footer > p a {
+		color: #666;
 		text-decoration: none;
 		border-bottom: 1px dotted #999;
 	}
 
-	footer a:hover {
+	footer > p a:hover {
 		border-bottom-style: solid;
 		color: #000;
 	}
