@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { base } from '$app/paths';
 	import {
 		getRandomPage,
@@ -17,7 +18,7 @@
 	let searchQuery = '';
 	let searchInfo = '';
 	let loading = false;
-	let navigating = false; // Separate state for page navigation
+	let navigating = false;
 	let error = '';
 	let address = '';
 	let copyMessage = '';
@@ -25,6 +26,163 @@
 	let isRandomSearch = false;
 	let searchExpanded = false;
 	let isAtFirstPage = false;
+
+	// History state
+	let history: Array<{
+		address: string;
+		displayAddress: string;
+		preview: string;
+		timestamp: number;
+	}> = [];
+	let showHistory = false;
+	const MAX_HISTORY = 50;
+
+	// Download state
+	let downloadingBook = false;
+	let downloadProgress = 0;
+
+	onMount(() => {
+		const saved = localStorage.getItem('akshara-mantapa-history');
+		if (saved) {
+			try {
+				history = JSON.parse(saved);
+			} catch (e) {
+				console.error('Failed to load history:', e);
+			}
+		}
+	});
+
+	function addToHistory(page: Page) {
+		const entry = {
+			address: page.raw_address,
+			displayAddress: page.hierarchical.display_string,
+			preview: page.content.slice(0, 50),
+			timestamp: Date.now()
+		};
+		
+		history = history.filter(h => h.address !== page.raw_address);
+		history = [entry, ...history].slice(0, MAX_HISTORY);
+		localStorage.setItem('akshara-mantapa-history', JSON.stringify(history));
+	}
+
+	async function loadFromHistory(addr: string) {
+		showHistory = false;
+		try {
+			loading = true;
+			error = '';
+			searchLocation = null;
+			searchResultPage = null;
+			lastSearchedText = '';
+			currentPage = await getPageByAddress(addr);
+			isAtFirstPage = checkIfFirstPage(currentPage);
+		} catch (e) {
+			error = 'Failed to load page from history.';
+			console.error(e);
+		} finally {
+			loading = false;
+		}
+	}
+
+	function clearHistory() {
+		history = [];
+		localStorage.removeItem('akshara-mantapa-history');
+	}
+
+	function formatTimestamp(ts: number): string {
+		const date = new Date(ts);
+		return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	}
+
+	function downloadPage() {
+		if (!currentPage) return;
+		
+		const content = `Akshara-Mantapa Page
+====================
+
+Location:
+- Mandira: ${currentPage.hierarchical.mandira_hex}
+- Gode (Wall): ${currentPage.hierarchical.gode}
+- Patti (Shelf): ${currentPage.hierarchical.patti}
+- Pustaka (Book): ${currentPage.hierarchical.pustaka}
+- Puta (Page): ${currentPage.hierarchical.puta}
+
+Address: ${currentPage.hierarchical.display_string}
+
+Content:
+${currentPage.formatted_content}
+`;
+		
+		const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `akshara-mantapa-page-${currentPage.hierarchical.puta}.txt`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function downloadBook() {
+		if (!currentPage || downloadingBook) return;
+		
+		const confirmed = confirm(
+			'This will generate and download all 410 pages of this book. This may take a minute. Continue?'
+		);
+		if (!confirmed) return;
+		
+		downloadingBook = true;
+		downloadProgress = 0;
+		
+		try {
+			const baseAddr = currentPage.hierarchical;
+			let bookContent = `Akshara-Mantapa Book
+====================
+Mandira: ${baseAddr.mandira_hex}
+Gode (Wall): ${baseAddr.gode}
+Patti (Shelf): ${baseAddr.patti}
+Pustaka (Book): ${baseAddr.pustaka}
+
+`;
+			
+			const bookStartAddress = `${baseAddr.mandira_hex}.${baseAddr.gode}.${baseAddr.patti}.${baseAddr.pustaka}.1`;
+			let currentAddr = bookStartAddress;
+			
+			for (let i = 1; i <= 410; i++) {
+				downloadProgress = Math.round((i / 410) * 100);
+				
+				const page = await getPageByAddress(currentAddr);
+				
+				bookContent += `
+--- Page ${i} ---
+${page.formatted_content}
+
+`;
+				
+				if (i < 410) {
+					const nextPage = await getNextPage(currentAddr);
+					currentAddr = nextPage.raw_address;
+				}
+				
+				if (i % 10 === 0) {
+					await new Promise(resolve => setTimeout(resolve, 10));
+				}
+			}
+			
+			const blob = new Blob([bookContent], { type: 'text/plain;charset=utf-8' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `akshara-mantapa-book-${baseAddr.pustaka}.txt`;
+			a.click();
+			URL.revokeObjectURL(url);
+			
+		} catch (e) {
+			error = 'Failed to download book.';
+			console.error(e);
+		} finally {
+			downloadingBook = false;
+			downloadProgress = 0;
+		}
+	}
 
 	function copyToClipboard(text: string) {
 		navigator.clipboard.writeText(text).then(() => {
@@ -57,6 +215,7 @@
 			searchResultPage = null;
 			lastSearchedText = '';
 			currentPage = await getRandomPage();
+			addToHistory(currentPage);
 			isAtFirstPage = checkIfFirstPage(currentPage);
 		} catch (e) {
 			error = 'Failed to load random page. Make sure the backend is running.';
@@ -79,6 +238,7 @@
 			searchResultPage = null;
 			lastSearchedText = '';
 			currentPage = await getPageByAddress(address);
+			addToHistory(currentPage);
 			isAtFirstPage = checkIfFirstPage(currentPage);
 		} catch (e) {
 			error = 'Failed to load page. Check address and backend status.';
@@ -95,6 +255,7 @@
 			navigating = true;
 			error = '';
 			currentPage = await getNextPage(currentPage.raw_address);
+			addToHistory(currentPage);
 			isAtFirstPage = false;
 		} catch (e) {
 			error = 'Failed to load next page.';
@@ -113,6 +274,7 @@
 			const prevPage = await getPreviousPage(currentPage.raw_address);
 			if (prevPage) {
 				currentPage = prevPage;
+				addToHistory(currentPage);
 				isAtFirstPage = checkIfFirstPage(currentPage);
 			} else {
 				isAtFirstPage = true;
@@ -192,6 +354,7 @@
 	async function viewSearchResultAsPage() {
 		if (!searchResultPage) return;
 		currentPage = searchResultPage;
+		addToHistory(currentPage);
 		searchLocation = null;
 		searchResultPage = null;
 		isAtFirstPage = checkIfFirstPage(currentPage);
@@ -201,20 +364,17 @@
 		if (!lastSearchedText) return content;
 
 		if (forSearchResult) {
-			// Find the search text in content (may be split by newlines from formatting)
 			const highlightClass = isRandomSearch ? 'search-highlight-yellow' : 'search-highlight-blue';
 			
 			let searchIndex = content.indexOf(lastSearchedText);
 
 			if (searchIndex !== -1) {
-				// Direct match found
 				const before = content.substring(0, searchIndex);
 				const matchText = content.substring(searchIndex, searchIndex + lastSearchedText.length);
 				const after = content.substring(searchIndex + lastSearchedText.length);
 				return before + `<mark class="${highlightClass}">${matchText}</mark>` + after;
 			}
 
-			// Try matching ignoring whitespace/newlines from formatting
 			const removeSpaces = (str: string) => str.replace(/\s/g, '');
 			const searchNoSpaces = removeSpaces(lastSearchedText);
 			const contentNoSpaces = removeSpaces(content);
@@ -289,6 +449,35 @@
 			</details>
 		</section>
 
+		<section class="history-section">
+			<button class="history-toggle" on:click={() => showHistory = !showHistory}>
+				{showHistory ? 'Hide' : 'Show'} History ({history.length})
+			</button>
+			
+			{#if showHistory}
+				<div class="history-panel">
+					{#if history.length === 0}
+						<p class="history-empty">No pages visited yet.</p>
+					{:else}
+						<div class="history-header">
+							<span>Recent Pages</span>
+							<button class="clear-history" on:click={clearHistory}>Clear All</button>
+						</div>
+						<ul class="history-list">
+							{#each history as item}
+								<li>
+									<button class="history-item" on:click={() => loadFromHistory(item.address)}>
+										<span class="history-preview">{item.preview}...</span>
+										<span class="history-time">{formatTimestamp(item.timestamp)}</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			{/if}
+		</section>
+
 		{#if error}
 			<aside class="error">{error}</aside>
 		{/if}
@@ -350,6 +539,18 @@
 					<div class="address-copy-buttons">
 						<button class="copy-btn" on:click={() => copyToClipboard(currentPage?.raw_address || '')}>Copy Raw Address</button>
 						<button class="copy-btn" on:click={() => copyToClipboard(currentPage?.hierarchical.display_string || '')}>Copy Hierarchical Address</button>
+					</div>
+					<div class="download-buttons">
+						<button class="download-btn" on:click={downloadPage} disabled={downloadingBook}>
+							Download Page
+						</button>
+						<button class="download-btn" on:click={downloadBook} disabled={downloadingBook}>
+							{#if downloadingBook}
+								Downloading... {downloadProgress}%
+							{:else}
+								Download Book (410 pages)
+							{/if}
+						</button>
 					</div>
 				</div>
 
@@ -649,6 +850,89 @@
 		color: #000;
 	}
 
+	/* History styles */
+	.history-section {
+		margin: 1em 0;
+	}
+
+	.history-toggle {
+		font-size: 0.85em;
+		padding: 0.4em 0.8em;
+		background: #f5f5f5;
+		border: 1px solid #ccc;
+	}
+
+	.history-panel {
+		background: #fafafa;
+		border: 1px solid #ddd;
+		padding: 1em;
+		margin-top: 0.5em;
+		max-height: 300px;
+		overflow-y: auto;
+	}
+
+	.history-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.75em;
+		padding-bottom: 0.5em;
+		border-bottom: 1px solid #eee;
+	}
+
+	.clear-history {
+		font-size: 0.75em;
+		padding: 0.2em 0.5em;
+		color: #666;
+		border-color: #ccc;
+	}
+
+	.history-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.history-item {
+		width: 100%;
+		text-align: left;
+		padding: 0.5em;
+		margin: 0.25em 0;
+		background: #fff;
+		border: 1px solid #eee;
+		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.history-item:hover {
+		background: #f0f0f0;
+		border-color: #ccc;
+	}
+
+	.history-preview {
+		font-family: 'Noto Sans Kannada', serif;
+		font-size: 0.9em;
+		color: #333;
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.history-time {
+		font-size: 0.75em;
+		color: #999;
+		margin-left: 1em;
+	}
+
+	.history-empty {
+		color: #666;
+		font-style: italic;
+		margin: 0;
+	}
+
 	.error {
 		background: #ffe;
 		border-left: 3px solid #cc0;
@@ -838,6 +1122,31 @@
 		background: #333;
 	}
 
+	/* Download buttons */
+	.download-buttons {
+		display: flex;
+		gap: 0.5em;
+		margin-top: 0.5em;
+	}
+
+	.download-btn {
+		font-size: 0.75em;
+		padding: 0.3em 0.6em;
+		border: 1px solid #166534;
+		background: #f0fdf4;
+		color: #166534;
+	}
+
+	.download-btn:hover:not(:disabled) {
+		background: #166534;
+		color: #fff;
+	}
+
+	.download-btn:disabled {
+		opacity: 0.6;
+		cursor: wait;
+	}
+
 	.content {
 		background: #fafafa;
 		border: 1px solid #ddd;
@@ -943,54 +1252,10 @@
 			font-size: 1.5em;
 		}
 
-		.subtitle {
-			font-size: 1em;
-		}
-
-		.control-row {
-			flex-direction: column;
-		}
-
-		.control-row button {
-			width: 100%;
-		}
-
-		.search-section .control-row {
-			flex-direction: column;
-		}
-
-		textarea.kannada-search-input {
-			width: 100%;
-		}
-
 		.page-header {
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 0.75em;
-		}
-
-		.page-navigation {
-			width: 100%;
-		}
-
-		.page-navigation .nav-btn {
-			flex: 1;
-		}
-
-		.address-components,
-		.address-components-search {
-			font-size: 0.9em;
-			line-height: 1.8;
-		}
-
-		.address-copy-buttons {
-			flex-direction: column;
-		}
-
-		.address-copy-buttons .copy-btn,
-		.address-copy-buttons .browse-btn {
-			width: 100%;
-			text-align: center;
 		}
 
 		.page-navigation-bottom {
@@ -1002,21 +1267,12 @@
 			width: 100%;
 		}
 
-		.content {
-			padding: 1em;
+		.download-buttons {
+			flex-direction: column;
 		}
 
-		.content pre {
-			font-size: 0.85em;
-		}
-
-		.metadata {
-			font-size: 0.85em;
-		}
-
-		.mandira-kannada,
-		.mandira-kannada-small {
-			font-size: 0.95em;
+		.download-btn {
+			width: 100%;
 		}
 	}
 </style>

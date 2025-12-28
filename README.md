@@ -330,11 +330,7 @@ The interface follows a minimalistic, scholarly aesthetic:
 3. **Rate Limiting** - Protect API from abuse
 4. **LRU Cache** - Cache frequently accessed pages
 5. **Multiple Scripts** - Support for other Indic scripts (Telugu, Tamil, Malayalam)
-6. **Dark Mode** - Theme toggle for different lighting conditions
-7. **Export Pages** - Download as PDF or text
-8. **Advanced Search** - Regex or pattern-based search
-9. **Bookmarks** - Save favorite pages or locations
-10. **Share Links** - Generate shareable URLs for specific pages
+6. **Advanced Search** - Regex or pattern-based search
 
 ## Philosophy
 
