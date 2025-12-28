@@ -943,10 +943,54 @@
 			font-size: 1.5em;
 		}
 
+		.subtitle {
+			font-size: 1em;
+		}
+
+		.control-row {
+			flex-direction: column;
+		}
+
+		.control-row button {
+			width: 100%;
+		}
+
+		.search-section .control-row {
+			flex-direction: column;
+		}
+
+		textarea.kannada-search-input {
+			width: 100%;
+		}
+
 		.page-header {
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 0.75em;
+		}
+
+		.page-navigation {
+			width: 100%;
+		}
+
+		.page-navigation .nav-btn {
+			flex: 1;
+		}
+
+		.address-components,
+		.address-components-search {
+			font-size: 0.9em;
+			line-height: 1.8;
+		}
+
+		.address-copy-buttons {
+			flex-direction: column;
+		}
+
+		.address-copy-buttons .copy-btn,
+		.address-copy-buttons .browse-btn {
+			width: 100%;
+			text-align: center;
 		}
 
 		.page-navigation-bottom {
@@ -956,6 +1000,23 @@
 
 		.page-navigation-bottom button {
 			width: 100%;
+		}
+
+		.content {
+			padding: 1em;
+		}
+
+		.content pre {
+			font-size: 0.85em;
+		}
+
+		.metadata {
+			font-size: 0.85em;
+		}
+
+		.mandira-kannada,
+		.mandira-kannada-small {
+			font-size: 0.95em;
 		}
 	}
 </style>

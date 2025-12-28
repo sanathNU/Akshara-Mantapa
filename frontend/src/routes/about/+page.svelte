@@ -372,7 +372,46 @@
 		}
 
 		h1 {
-			font-size: 1.5em;
+			font-size: 1.3em;
+			word-wrap: break-word;
+		}
+
+		h2 {
+			font-size: 1.15em;
+		}
+
+		h3 {
+			font-size: 1em;
+		}
+
+		.kannada-section {
+			padding: 1em;
+		}
+
+		.kannada-section p {
+			font-size: 1em;
+			text-align: left;
+		}
+
+		.intro p,
+		.philosophy p,
+		.monkey-theorem p,
+		.why-section p {
+			text-align: left;
+		}
+
+		.monkey-theorem,
+		.why-section {
+			padding: 1em;
+		}
+
+		blockquote {
+			padding: 0.75em 1em;
+			font-size: 0.95em;
+		}
+
+		.links li {
+			padding-left: 1.25em;
 		}
 	}
 </style>
