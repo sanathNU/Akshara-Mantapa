@@ -96,6 +96,64 @@ impl LibraryOfBabel {
         })
     }
 
+    /// Check if a string contains Kannada characters
+    /// "ಡ್ಠೂಙ್ಭಂ..." to "a1b2c3..."
+    pub fn contains_kannada(s: &str) -> bool {
+        s.chars().any(|c| ('\u{0C80}'..='\u{0CFF}').contains(&c))
+    }
+
+     /// Parse address that may contain Kannada mandira
+    /// Accepts: hex, hierarchical with hex mandira, or hierarchical with Kannada mandira
+    pub fn parse_address(&self, address: &str) -> Option<Location> {
+        if address.contains('.') {
+            // Hierarchical format: mandira.gode.patti.pustaka.puta
+            let parts: Vec<&str> = address.rsplitn(5, '.').collect();
+            
+            if parts.len() == 5 {
+                // parts are in reverse: [puta, pustaka, patti, gode, mandira]
+                let mandira_str = parts[4];
+                
+                // Convert Kannada mandira to hex if needed
+                let mandira_hex = if Self::contains_kannada(mandira_str) {
+                    self.kannada_to_hex(mandira_str)?
+                } else {
+                    mandira_str.to_string()
+                };
+                
+                // Reconstruct the hierarchical string with hex mandira
+                let hex_address = format!(
+                    "{}.{}.{}.{}.{}",
+                    mandira_hex, parts[3], parts[2], parts[1], parts[0]
+                );
+                
+                HierarchicalAddress::from_display_string(&hex_address)
+                    .map(Location::from_hierarchical)
+            } else {
+                // Try directly
+                HierarchicalAddress::from_display_string(address)
+                    .map(Location::from_hierarchical)
+            }
+        } else if Self::contains_kannada(address) {
+            // Raw Kannada address (no dots)
+            let hex = self.kannada_to_hex(address)?;
+            Location::from_hex(&hex)
+        } else {
+            // Raw hex address
+            Location::from_hex(address)
+        }
+    }
+
+    /// Convert Kannada mandira string to hex
+    pub fn kannada_to_hex(&self, kannada: &str) -> Option<String> {
+        let indices = self.alphabet.segment(kannada)?;
+        if indices.is_empty() {
+            return None;
+        }
+        let num = self.bijection.indices_to_biguint(&indices);
+        Some(num.to_str_radix(16))
+    }
+
+
     /// Search for text at a random position with random surrounding content
     pub fn search_at_random_position(&self, query: &str) -> Option<SearchResult> {
         let query_indices = self.alphabet.segment(query)?;

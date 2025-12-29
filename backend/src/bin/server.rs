@@ -128,14 +128,6 @@
         }
     }
 
-    fn parse_address(address: &str) -> Option<Location> {
-        if address.contains('.') {
-            HierarchicalAddress::from_display_string(address).map(Location::from_hierarchical)
-        } else {
-            Location::from_hex(address)
-        }
-    }
-
     // ============================================================================
     // Handlers
     // ============================================================================
@@ -189,7 +181,7 @@
         State(state): State<AppState>,
         Query(query): Query<AddressQuery>,
     ) -> impl IntoResponse {
-        let location = match parse_address(&query.address) {
+        let location = match state.library.parse_address(&query.address) {
             Some(loc) => loc,
             None => {
                 return (
@@ -215,7 +207,7 @@
         State(state): State<AppState>,
         Query(query): Query<AddressQuery>,
     ) -> impl IntoResponse {
-        let location = match parse_address(&query.address) {
+        let location = match state.library.parse_address(&query.address) {
             Some(loc) => loc,
             None => {
                 return (
@@ -241,7 +233,7 @@
         State(state): State<AppState>,
         Query(query): Query<AddressQuery>,
     ) -> impl IntoResponse {
-        let location = match parse_address(&query.address) {
+        let location = match state.library.parse_address(&query.address) {
             Some(loc) => loc,
             None => {
                 return (
@@ -369,7 +361,7 @@
         State(state): State<AppState>,
         Query(params): Query<VerifyParams>,
     ) -> impl IntoResponse {
-        let location = match parse_address(&params.address) {
+        let location = match state.library.parse_address(&params.address) {
             Some(loc) => loc,
             None => {
                 return (

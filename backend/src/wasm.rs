@@ -21,7 +21,7 @@ impl WasmLibrary {
     /// Get a page by its hierarchical address
     #[wasm_bindgen(js_name = getPage)]
     pub fn get_page(&self, address: &str) -> String {
-        let location = match Self::parse_address(address) {
+        let location = match self.library.parse_address(address) {
             Some(loc) => loc,
             None => return Self::error_json("Invalid address format"),
         };
@@ -110,7 +110,7 @@ impl WasmLibrary {
     /// Get the next page after the given address
     #[wasm_bindgen]
     pub fn next_page(&self, address: &str) -> String {
-        let location = match Self::parse_address(address) {
+        let location = match self.library.parse_address(address) {
             Some(loc) => loc,
             None => return Self::error_json("Invalid address format"),
         };
@@ -128,7 +128,7 @@ impl WasmLibrary {
     /// Get the previous page before the given address
     #[wasm_bindgen]
     pub fn previous_page(&self, address: &str) -> String {
-        let location = match Self::parse_address(address) {
+        let location = match self.library.parse_address(address) {
             Some(loc) => loc,
             None => return Self::error_json("Invalid address format"),
         };
@@ -156,13 +156,8 @@ impl WasmLibrary {
 // Private helper methods (not exposed to JS)
 impl WasmLibrary {
     /// Parse address from hex or hierarchical format
-    fn parse_address(address: &str) -> Option<Location> {
-        if address.contains('.') {
-            HierarchicalAddress::from_display_string(address)
-                .map(Location::from_hierarchical)
-        } else {
-            Location::from_hex(address)
-        }
+    fn parse_address(&self, address: &str) -> Option<Location> {
+        self.library.parse_address(address)
     }
 
     /// Build hierarchical JSON with mandira_kannada (matches server behavior)
