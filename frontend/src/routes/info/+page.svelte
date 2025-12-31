@@ -285,22 +285,42 @@ Where:
 		<section>
 			<h2>Technical Implementation</h2>
 			<p>
-				The backend is built with Rust for performance and type safety:
+				The core library is built with Rust for performance and type safety, compiled to both 
+				native binaries and WebAssembly for browser execution:
 			</p>
+			
+			<h3>Core Library (Rust)</h3>
 			<ul>
-				<li><strong>Axum</strong> - Modern async web framework</li>
-				<li><strong>num-bigint</strong> - Arbitrary precision arithmetic for 6,468-bit numbers</li>
-				<li><strong>num-integer</strong> - Integer operations (GCD for computing modular inverse)</li>
-				<li><strong>Bijection Engine</strong> - Multiplicative inverse modular arithmetic</li>
-				<li><strong>Grapheme Alphabet</strong> - Systematic generation of 56,028 Kannada clusters</li>
-				<li><strong>Serde</strong> - JSON serialization for API responses</li>
+				<li><strong>num-bigint</strong> — Arbitrary precision arithmetic for 6,468-bit numbers</li>
+				<li><strong>num-integer</strong> — Integer operations (GCD for computing modular inverse)</li>
+				<li><strong>Bijection Engine</strong> — Multiplicative inverse modular arithmetic</li>
+				<li><strong>Grapheme Alphabet</strong> — Systematic generation of 56,028 Kannada clusters</li>
 			</ul>
-			<p>
-				The frontend uses SvelteKit with TypeScript for a minimal, fast, reactive user interface.
-			</p>
+
+			<h3>Backend (Native)</h3>
+			<ul>
+				<li><strong>Axum</strong> — Modern async web framework</li>
+				<li><strong>Serde</strong> — JSON serialization for API responses</li>
+			</ul>
+
+			<h3>WebAssembly (Browser)</h3>
+			<ul>
+				<li><strong>wasm-bindgen</strong> — Rust-to-JavaScript bindings</li>
+				<li><strong>wasm-pack</strong> — Build tooling for WebAssembly packages</li>
+				<li>Enables client-side computation without server round-trips</li>
+				<li>Same bijection logic runs natively in the browser</li>
+			</ul>
+
+			<h3>Frontend</h3>
+			<ul>
+				<li><strong>SvelteKit</strong> — Reactive UI framework with TypeScript</li>
+				<li>Can use either WASM (client-side) or API (server-side) for computation</li>
+			</ul>
+
 			<p class="note">
 				First startup takes ~5 seconds to compute the bijection constants (C and I) using the
-				extended Euclidean algorithm. Subsequent requests are instant.
+				extended Euclidean algorithm. Subsequent requests are instant. The WASM build allows 
+				this computation to happen entirely in the browser.
 			</p>
 		</section>
 
@@ -308,17 +328,17 @@ Where:
 			<h2>Further Reading</h2>
 			<ul>
 				<li>
-					<a href="/about">About Page</a> - Philosophy and background
+					<a href="{base}/about">About Page</a> — Philosophy and background
 				</li>
 				<li>
 					<a href="https://github.com/unicode-org/cldr" target="_blank" rel="noopener">
 						Unicode CLDR
-					</a> - Kannada character specifications
+					</a> — Kannada character specifications
 				</li>
 				<li>
 					<a href="https://libraryofbabel.info/theory.html" target="_blank" rel="noopener">
 						Original Theory
-					</a> - How the English version works
+					</a> — How the English version works
 				</li>
 			</ul>
 		</section>
@@ -326,7 +346,7 @@ Where:
 
 	<footer>
 		<p>
-			<a href="..">Return to the Library</a>
+			<a href="{base}/">Return to the Library</a>
 		</p>
 	</footer>
 </div>
@@ -557,9 +577,19 @@ Where:
 		font-size: 0.7em;
 	}
 
+	section > ul {
+		margin: 0.5em 0 1em 1.5em;
+		padding: 0;
+	}
+
+	section > ul li {
+		margin: 0.5em 0;
+	}
+
 	.links ul {
 		list-style: none;
 		padding: 0;
+		margin-left: 0;
 	}
 
 	.links li {
