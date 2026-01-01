@@ -20,7 +20,7 @@ This project implements a digital version of the Library of Babel for the Kannad
 - **Hierarchical Display**: Addresses shown as `mandira.gode.patti.pustaka.puta` (Room.Wall.Shelf.Book.Page)
 - **Mandira as Kannada**: Room identifiers displayed in Kannada script for smaller addresses
 - **Bijective Mapping**: Single invertible system using multiplicative inverse modular arithmetic
-- **Rich Kannada Script**: Uses **56,028 grapheme clusters** including:
+- **Rich Kannada Script**: Uses **57,324 grapheme clusters** including:
   - Consonants, vowels, and their combinations
   - Matras (vowel signs) and modifiers (ಂ, ಃ)
   - Conjuncts (consonant clusters like ಕ್ಷ)
@@ -35,12 +35,12 @@ This project implements a digital version of the Library of Babel for the Kannad
 Every page's content is mapped to a unique address using:
 
 ```
-content_num = Σ (cluster_index[i] × 56028^i) for i in 0..400
+content_num = Σ (cluster_index[i] × 57324^i) for i in 0..400
 address = (content_num × C) mod N
 content_num = (address × I) mod N
 
 Where:
-- N = 56028^400 (modulus, the total number of possible pages)
+- N = 57324^400 (modulus, the total number of possible pages)
 - C = coprime multiplier
 - I = C^(-1) mod N (modular inverse of C)
 ```
@@ -50,7 +50,7 @@ This creates a perfect one-to-one mapping between content and addresses.
 ### Constants (Borges-Faithful)
 
 ```
-ALPHABET_SIZE     = 56,028 grapheme clusters
+ALPHABET_SIZE     = 57,324 grapheme clusters
 CLUSTERS_PER_PAGE = 400
 PAGES_PER_BOOK    = 410
 BOOKS_PER_SHELF   = 32
@@ -61,15 +61,15 @@ WALLS_PER_ROOM    = 4
 ### Address Space
 
 ```
-Total pages    = 56,028^400 ≈ 10^1,899
-Address bits   ≈ 6,308 bits (~789 bytes, ~1,578 hex chars)
+Total pages    = 57,324^400 ≈ 10^1,900
+Address bits   ≈ 6,326 bits (~790 bytes, ~1,580 hex chars)
 ```
 
 ## Address Format
 
 ### Raw Hex Address
 ```
-93cebf0ea1c7096fe3de06fd119faec4c4d549bda55708577c... (~1,578 chars)
+93cebf0ea1c7096fe3de06fd119faec4c4d549bda55708577c... (~1,580 chars)
 ```
 
 ### Hierarchical Display
@@ -263,14 +263,14 @@ The system uses **multiplicative inverse modular arithmetic** to create a perfec
    - Segment into grapheme clusters: `["ಕ", "ನ್", "ನ", "ಡ"]`
    - Convert each cluster to its alphabet index
    - Pad to 400 clusters with spaces (index 0)
-   - Treat as base-56,028 number: `content_num = Σ (index[i] × 56028^i)`
+   - Treat as base-57,324 number: `content_num = Σ (index[i] × 56028^i)`
    - Apply bijection: `address = (content_num × C) mod N`
    - Convert to hex and hierarchical format
 
 2. **Browse (Address → Text)**:
    - Take hex address
    - Apply inverse: `content_num = (address × I) mod N`
-   - Convert back to base-56,028 indices
+   - Convert back to base-57,324 indices
    - Map indices to grapheme clusters
    - Format as 25 clusters per line
 
@@ -295,7 +295,7 @@ The alphabet systematically generates all valid Kannada grapheme clusters:
 - Dead consonants (with halant)
 - Two-consonant conjuncts with all combinations
 
-This produces exactly **56,028 unique clusters**.
+This produces exactly **57,324unique clusters**.
 
 ### Page Specifications
 
@@ -341,7 +341,7 @@ The interface follows a minimalistic, scholarly aesthetic:
 
 This implementation proves that with deterministic algorithms and elegant mathematics, we can create an infinite, reproducible space where every possible text exists at a definite, calculable location.
 
-The use of Kannada script with 56,028 grapheme clusters creates a vastly larger space than the original (29^3200 vs 56028^400), yet remains fully navigable through the bijective mapping.
+The use of Kannada script with 57,324 grapheme clusters creates a vastly larger space than the original (29^3200 vs 56028^400), yet remains fully navigable through the bijective mapping.
 
 **Every possible Kannada text—including this very document—exists somewhere in the library.**
 

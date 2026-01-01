@@ -102,6 +102,12 @@ impl GraphemeAlphabet {
             }
         }
 
+        // Dead conjuncts (conjunct + halant) - e.g., ರ್ನ್, ಸ್ಟ್
+        for &c1 in KannadaScript::consonants() {
+            for &c2 in KannadaScript::consonants() {
+                clusters.push(format!("{}{}{}{}", c1, halant, c2, halant));
+            }
+        }
         let max_cluster_chars = clusters
             .iter()
             .map(|s| s.chars().count())

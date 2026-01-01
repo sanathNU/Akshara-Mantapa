@@ -123,7 +123,7 @@
 					<strong>Interactive Tutorial</strong> — Step-by-step guide explaining the mathematics
 				</li>
 				<li>
-					<strong>Grapheme Cluster Explorer</strong> — Visual tool to explore all 56,028 clusters
+					<strong>Grapheme Cluster Explorer</strong> — Visual tool to explore all 57,324 clusters
 				</li>
 				<li>
 					<strong>Bijection Visualizer</strong> — Animated demonstration of the encoding/decoding process

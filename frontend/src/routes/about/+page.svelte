@@ -43,7 +43,7 @@
 					ಯಾವುದೇ ಕನ್ನಡ ಪಠ್ಯಕ್ಕಾಗಿ ಹುಡುಕಿ, ಮತ್ತು ಗ್ರಂಥಾಲಯವು ಅದರ ನಿಖರವಾದ ಸ್ಥಳವನ್ನು ತೋರಿಸುತ್ತದೆ.
 				</p>
 				<p>
-					೫೬,೦೨೮ ಅಕ್ಷರ ಗುಚ್ಛಗಳೊಂದಿಗೆ, ಈ ಗ್ರಂಥಾಲಯವು ೫೬,೦೨೮<sup>೪೧೦</sup> ≈ ೧೦<sup>೧,೯೪೭</sup> ಸಂಭವನೀಯ ಪುಟಗಳನ್ನು ಒಳಗೊಂಡಿದೆ.
+					೫೭,೩೨೪ ಅಕ್ಷರ ಗುಚ್ಛಗಳೊಂದಿಗೆ, ಈ ಗ್ರಂಥಾಲಯವು ೫೭,೩೨೪<sup>೪೧೦</sup> ≈ ೧೦<sup>೧,೯೪೭</sup> ಸಂಭವನೀಯ ಪುಟಗಳನ್ನು ಒಳಗೊಂಡಿದೆ.
 					ಈ ಸಂಖ್ಯೆಯು <a href="https://en.wikipedia.org/wiki/Graham%27s_number" target="_blank" rel="noopener">ಗ್ರಾಹಮ್ ಸಂಖ್ಯೆ</a>ಯಂತಹ ರಚನೆಗಳಿಗಿಂತ ಚಿಕ್ಕದಾಗಿದ್ದರೂ, ಅಗ್ರಾಹ್ಯವಾಗಿ ವಿಶಾಲವಾಗಿದೆ.
 					ಆದರೂ ಪ್ರತಿಯೊಂದು ಪುಟವೂ ತಕ್ಷಣವೇ ಪ್ರವೇಶಿಸಬಹುದು ಮತ್ತು ಹುಡುಕಬಹುದು.
 				</p>
@@ -59,7 +59,7 @@
 				<p>
 					ಬೋರ್ಗೆಸ್ ೪೧೦ ಪುಟಗಳ ಪ್ರತಿಯೊಂದು ಸಂಭವನೀಯ ಪುಸ್ತಕವನ್ನು ಒಳಗೊಂಡ ಗ್ರಂಥಾಲಯವನ್ನು ಕಲ್ಪಿಸಿಕೊಂಡರು.
 					ಅಕ್ಷರ ಮಂಟಪವು ೪೧೦-ಗುಚ್ಛ ಪುಟಗಳೊಂದಿಗೆ ಈ ರಚನೆಯನ್ನು ನಿಷ್ಠೆಯಿಂದ ಸಂರಕ್ಷಿಸುತ್ತದೆ, ಆದರೆ ಸೀಮಿತ
-					ಲ್ಯಾಟಿನ್ ವರ್ಣಮಾಲೆಯ ಬದಲು ಕನ್ನಡದ ೫೬,೦೨೮ ಅಕ್ಷರ ಗುಚ್ಛಗಳನ್ನು ಬಳಸುತ್ತದೆ.
+					ಲ್ಯಾಟಿನ್ ವರ್ಣಮಾಲೆಯ ಬದಲು ಕನ್ನಡದ ೫೭,೩೨೪ ಅಕ್ಷರ ಗುಚ್ಛಗಳನ್ನು ಬಳಸುತ್ತದೆ.
 				</p>
 			</section>
 
@@ -113,8 +113,8 @@
 					find its unique location; browse any address and deterministically generate its content.
 				</p>
 				<p>
-					With 56,028 grapheme clusters (including consonants, vowels, matras, modifiers, and conjuncts),
-					the library contains 56,028<sup>410</sup> ≈ 10<sup>1,947</sup> possible pages. This number, 
+					With 57,324 grapheme clusters (including consonants, vowels, matras, modifiers, and conjuncts),
+					the library contains 57,324<sup>410</sup> ≈ 10<sup>1,947</sup> possible pages. This number, 
 					while still dwarfed by constructs like <a href="https://en.wikipedia.org/wiki/Graham%27s_number" target="_blank" rel="noopener">Graham's number</a>, is incomprehensibly vast. Yet every 
 					page is instantly accessible and searchable.
 				</p>
@@ -135,7 +135,7 @@
 				</p>
 				<p>
 					Akshara-Mantapa faithfully preserves this structure with 410-cluster pages, but uses 
-					Kannada's 56,028 grapheme clusters instead of the limited Latin alphabet. Each cluster 
+					Kannada's 57,324 grapheme clusters instead of the limited Latin alphabet. Each cluster 
 					represents roughly 10<sup>3</sup> times more possibilities than a single Latin character, 
 					creating a space incomparably vaster yet equally navigable.
 				</p>
@@ -187,7 +187,7 @@
 					Implementing a Library of Babel for an Indic script presents unique challenges that don't 
 					exist for Latin alphabets. Kannada uses grapheme clusters, which are complex combinations of consonants, 
 					vowels, matras, and modifiers that behave as single visual units. Building a bijective mapping 
-					over 56,028 such clusters, ensuring mathematical correctness with around 6,300-bit arithmetic, and 
+					over 57,324 such clusters, ensuring mathematical correctness with around 6,300-bit arithmetic, and 
 					making it all run efficiently in both native and WebAssembly contexts were irresistible 
 					puzzles to solve.
 				</p>

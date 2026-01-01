@@ -1,359 +1,255 @@
-<script lang="ts">
+<script>
 	import { base } from '$app/paths';
 
-	// Example clusters for demonstration
-	const exampleClusters = [
-		{ cluster: 'ಕ', description: 'Simple consonant: ka' },
-		{ cluster: 'ಕಾ', description: 'Consonant + matra: kā (ka + ā sign)' },
-		{ cluster: 'ಕ್', description: 'Consonant + halant: k (dead consonant)' },
-		{ cluster: 'ಕ್ಷ', description: 'Conjunct: kṣa (ka + halant + ṣa)' },
-		{ cluster: 'ಕ್ಷಾ', description: 'Conjunct + matra: kṣā' },
-		{ cluster: 'ಕ್ಷಾಂ', description: 'Conjunct + matra + modifier: kṣāṃ' },
-	];
+	let lang = $state('kn'); // 'kn' for Kannada, 'en' for English
 </script>
 
 <div class="page">
 	<header>
-		<h1>Technical Documentation</h1>
+		<h1>∞ ಅಕ್ಷರ ಮಂಟಪ | Akshara-Mantapa</h1>
 		<nav class="breadcrumb">
-			<a href="{base}/">← Back to Library</a>
+			<a href="{base}/">← {lang === 'kn' ? 'ಗ್ರಂಥಾಲಯಕ್ಕೆ ಹಿಂತಿರುಗಿ' : 'Back to Library'}</a>
 		</nav>
+		<div class="lang-toggle">
+			<button 
+				class="toggle-btn" 
+				class:active={lang === 'kn'} 
+				onclick={() => lang = 'kn'}
+			>
+				ಕನ್ನಡ
+			</button>
+			<button 
+				class="toggle-btn" 
+				class:active={lang === 'en'} 
+				onclick={() => lang = 'en'}
+			>
+				English
+			</button>
+		</div>
 	</header>
 
 	<article>
-		<section class="intro">
-			<p>
-				This page explains the technical approach used in the Kannada Library of Babel and how
-				it differs from the original implementation.
-			</p>
-		</section>
-
-		<section>
-			<h2>The Original Library of Babel</h2>
-			<p>
-				Jonathan Basile's <a href="https://libraryofbabel.info" target="_blank" rel="noopener">libraryofbabel.info</a>
-				implements Borges' vision using a 29-character alphabet:
-			</p>
-			<ul>
-				<li>26 lowercase English letters (a-z)</li>
-				<li>Space, period, and comma</li>
-			</ul>
-			<p>
-				Each page contains exactly 3,200 characters (40 lines × 80 characters). This creates
-				29<sup>3200</sup> possible pages—a number so large it dwarfs the number of atoms in the
-				observable universe.
-			</p>
-			<p>
-				The original uses a clever mathematical encoding: each page's content is converted to
-				a base-29 number, which becomes its address. This makes the library fully invertible, meaning you can search for any text and get its exact location.
-				Akshara-Mantapa uses the same principle but adapted for Kannada's complexity.
-			</p>
-		</section>
-
-		<section>
-			<h2>The Kannada Challenge</h2>
-			<p>
-				Kannada, like other Indic scripts, is fundamentally different from Latin alphabets.
-				It doesn't use individual letters that combine linearly. Instead, it uses grapheme clusters,
-				which are visual units that combine consonants, vowels, and modifiers in complex ways.
-			</p>
-
-			<h3>What is a Grapheme Cluster?</h3>
-			<p>
-				A grapheme cluster is the smallest unit of writing that a reader perceives as a single
-				character. In Kannada, these clusters can be:
-			</p>
-
-			<div class="examples">
-				{#each exampleClusters as example}
-					<div class="example-card">
-						<div class="cluster-display">{example.cluster}</div>
-						<div class="cluster-desc">{example.description}</div>
-					</div>
-				{/each}
-			</div>
-
-			<p>
-				Notice how a single "character" like <span class="kannada-large">ಕ್ಷಾಂ</span> is actually
-				composed of four Unicode codepoints: consonant (ಕ) + halant (್) + consonant (ಷ) + matra (ಾ) + modifier (ಂ).
-				But visually and linguistically, it's perceived as one unit.
-			</p>
-		</section>
-
-		<section>
-			<h2> Grapheme-Based Alphabet</h2>
-			<p>
-				This implementation treats each grapheme cluster as a single "letter" in our alphabet.
-				Instead of 29 characters, we have <strong>56,028 distinct grapheme clusters</strong>.
-			</p>
-
-			<h3>Building the Alphabet</h3>
-			<p>All Kannada Alphabet Clusters are systematically generated:</p>
-
-			<ol class="tech-list">
-				<li>
-					<strong>Punctuation</strong>: Space, period, comma, etc.
-					<div class="code-block">Examples: " ", ".", ",", "!", "?"</div>
-				</li>
-				<li>
-					<strong>Independent vowels</strong>: ಅ, ಆ, ಇ, ಈ, ಉ, ಊ, ಋ, etc.
-					<div class="code-block">14 vowels × (1 + 2 modifiers) = 42 clusters</div>
-				</li>
-				<li>
-					<strong>Simple consonants</strong>: ಕ, ಖ, ಗ, ಘ, ಙ, etc.
-					<div class="code-block">36 consonants</div>
-				</li>
-				<li>
-					<strong>Consonants with matras</strong>: ಕಾ, ಕಿ, ಕೀ, etc.
-					<div class="code-block">36 consonants × 13 matras × (1 + 2 modifiers) = 1,404 clusters</div>
-				</li>
-				<li>
-					<strong>Consonants with modifiers</strong>: ಕಂ, ಕಃ
-					<div class="code-block">36 consonants × 2 modifiers = 72 clusters</div>
-				</li>
-				<li>
-					<strong>Dead consonants</strong>: ಕ್, ಖ್, ಗ್, etc.
-					<div class="code-block">36 consonants with halant</div>
-				</li>
-				<li>
-					<strong>Conjuncts (2-consonant clusters)</strong>: ಕ್ಕ, ಕ್ಖ, ಕ್ಗ, etc.
-					<div class="code-block">36 × 36 = 1,296 base conjuncts</div>
-					<div class="code-block">× 13 matras × (1 + 2 modifiers) = 50,544 additional clusters</div>
-					<div class="code-block">× 2 modifiers = 2,592 additional clusters</div>
-				</li>
-			</ol>
-
-			<p>
-				This gives us <strong>56,028 total clusters</strong>—each one a valid, meaningful unit
-				of Kannada text.
-			</p>
-		</section>
-
-		<section>
-			<h2>Bijective Mapping</h2>
-			<p>
-				Akshara-Mantapa uses a <strong>single, fully invertible bijective mapping</strong> using
-				multiplicative inverse modular arithmetic. Every page has exactly one address, and every
-				address generates exactly one page.
-			</p>
-
-			<h3>The Mathematics</h3>
-			<p>
-				The bijection uses a coprime multiplier and its modular inverse:
-			</p>
-
-			<div class="address-type">
-				<h4>Formula</h4>
-				<pre class="code">content_num = Σ (cluster_index[i] × 56028^i) for i in 0..410
-address = (content_num × C) mod N
-content_num = (address × I) mod N
-
-Where:
-- N = 56028^410 (modulus, total possible pages)
-- C = coprime multiplier (chosen at startup)
-- I = C^(-1) mod N (modular inverse)</pre>
-
+		{#if lang === 'kn'}
+			<!-- Kannada Content -->
+			<section class="intro kannada-section">
+				<h2>ಅಕ್ಷರ ಮಂಟಪ</h2>
 				<p>
-					This creates a perfect one-to-one mapping. Unlike hash functions, the modular inverse
-					allows us to go both directions: content → address AND address → content.
+					ಜಾರ್ಜ್ ಲೂಯಿಸ್ ಬೋರ್ಗೆಸ್ ಅವರ ೧೯೪೧ ರ ಕಿರು ಕಥೆ "ದಿ ಲೈಬ್ರರಿ ಆಫ್ ಬ್ಯಾಬೆಲ್" ನಿಂದ ಸ್ಫೂರ್ತಿ ಪಡೆದ ಈ ಯೋಜನೆಯು
+					ಅನಂತ ಮತ್ತು ನಿರ್ಧಾರಿತ ಗ್ರಂಥಾಲಯದ ಪರಿಕಲ್ಪನೆಯನ್ನು ಕನ್ನಡ ಭಾಷೆಗೆ ತರುತ್ತದೆ.
 				</p>
-			</div>
-
-			<h3>Address Formats</h3>
-
-			<div class="address-type">
-				<h4>1. Raw Hex Address</h4>
-				<code class="address-example">93cebf0ea1c7096fe3de06fd119f...</code>
 				<p>
-					The raw address is ~1,618 hexadecimal characters (~6,468 bits):
+					ಈ ಗ್ರಂಥಾಲಯವು ೪೧೦ ಅಕ್ಷರಗುಚ್ಛಗಳ ಪ್ರತಿಯೊಂದು ಸಂಭವನೀಯ ಕನ್ನಡ ಪಠ್ಯವನ್ನು ಒಳಗೊಂಡಿದೆ.
+					ಏಕೈಕ, ಸುಂದರವಾದ ದ್ವಿಮುಖ ಮ್ಯಾಪಿಂಗ್ ಮೂಲಕ, ಪ್ರತಿಯೊಂದು ಪಠ್ಯವು ನಿಖರವಾಗಿ ಒಂದು ವಿಳಾಸವನ್ನು ಹೊಂದಿದೆ.
+					ಯಾವುದೇ ಕನ್ನಡ ಪಠ್ಯಕ್ಕಾಗಿ ಹುಡುಕಿ, ಮತ್ತು ಗ್ರಂಥಾಲಯವು ಅದರ ನಿಖರವಾದ ಸ್ಥಳವನ್ನು ತೋರಿಸುತ್ತದೆ.
 				</p>
+				<p>
+					೫೭,೩೨೪ ಅಕ್ಷರ ಗುಚ್ಛಗಳೊಂದಿಗೆ, ಈ ಗ್ರಂಥಾಲಯವು ೫೭,೩೨೪<sup>೪೧೦</sup> ≈ ೧೦<sup>೧,೯೪೭</sup> ಸಂಭವನೀಯ ಪುಟಗಳನ್ನು ಒಳಗೊಂಡಿದೆ.
+					ಈ ಸಂಖ್ಯೆಯು <a href="https://en.wikipedia.org/wiki/Graham%27s_number" target="_blank" rel="noopener">ಗ್ರಾಹಮ್ ಸಂಖ್ಯೆ</a>ಯಂತಹ ರಚನೆಗಳಿಗಿಂತ ಚಿಕ್ಕದಾಗಿದ್ದರೂ, ಅಗ್ರಾಹ್ಯವಾಗಿ ವಿಶಾಲವಾಗಿದೆ.
+					ಆದರೂ ಪ್ರತಿಯೊಂದು ಪುಟವೂ ತಕ್ಷಣವೇ ಪ್ರವೇಶಿಸಬಹುದು ಮತ್ತು ಹುಡುಕಬಹುದು.
+				</p>
+			</section>
+
+			<section class="philosophy kannada-section">
+				<h2>ಮೂಲ ದೃಷ್ಟಿಕೋನ</h2>
+				<blockquote>
+					"ವಿಶ್ವವು (ಇತರರು ಗ್ರಂಥಾಲಯ ಎಂದು ಕರೆಯುತ್ತಾರೆ) ಅನಿರ್ದಿಷ್ಟ ಮತ್ತು ಬಹುಶಃ ಅನಂತ ಸಂಖ್ಯೆಯ ಷಡ್ಭುಜಾಕಾರದ 
+					ಗ್ಯಾಲರಿಗಳಿಂದ ಕೂಡಿದೆ, ಅವುಗಳ ನಡುವೆ ವಿಶಾಲ ಗಾಳಿ ಕೊಳವೆಗಳಿವೆ, ಬಹಳ ತಗ್ಗು ಕೈಪಿಡಿಗಳಿಂದ ಸುತ್ತುವರಿದಿದೆ."
+					<footer>— ಜಾರ್ಜ್ ಲೂಯಿಸ್ ಬೋರ್ಗೆಸ್, "ದಿ ಲೈಬ್ರರಿ ಆಫ್ ಬ್ಯಾಬೆಲ್"</footer>
+				</blockquote>
+				<p>
+					ಬೋರ್ಗೆಸ್ ೪೧೦ ಪುಟಗಳ ಪ್ರತಿಯೊಂದು ಸಂಭವನೀಯ ಪುಸ್ತಕವನ್ನು ಒಳಗೊಂಡ ಗ್ರಂಥಾಲಯವನ್ನು ಕಲ್ಪಿಸಿಕೊಂಡರು.
+					ಜೊನಾಥನ್ ಬಾಸಿಲ್ ಅವರ <a href="https://libraryofbabel.info" target="_blank" rel="noopener">libraryofbabel.info</a> 
+					ಈ ದೃಷ್ಟಿಕೋನವನ್ನು ಇಂಗ್ಲಿಷ್‌ಗಾಗಿ ಅದ್ಭುತವಾಗಿ ಸಾಕಾರಗೊಳಿಸಿತು.
+				</p>
+				<p>
+					ಇದು <a href="https://en.wikipedia.org/wiki/Infinite_monkey_theorem" target="_blank" rel="noopener">ಅನಂತ ಕೋತಿ ಪ್ರಮೇಯ</a>ಕ್ಕೆ ಸಂಬಂಧಿಸಿದೆ:
+					ನಿರ್ಣಾಯಕ ಗಣಿತದ ಮೂಲಕ, ಪ್ರತಿಯೊಂದು ಸಂಭವನೀಯ ಪಠ್ಯವು ಈಗಾಗಲೇ ಲೆಕ್ಕಹಾಕಬಹುದಾದ ವಿಳಾಸದಲ್ಲಿ ಅಸ್ತಿತ್ವದಲ್ಲಿದೆ.
+					ಕೋತಿ ಈಗಾಗಲೇ ಎಲ್ಲವನ್ನೂ ಟೈಪ್ ಮಾಡಿದೆ. ನಾವು ಎಲ್ಲಿ ನೋಡಬೇಕೆಂದು ತಿಳಿದುಕೊಳ್ಳಬೇಕಾಗಿದೆ.
+				</p>
+			</section>
+
+			<section class="why-section kannada-section">
+				<h2>ಇದನ್ನು ಏಕೆ ನಿರ್ಮಿಸಬೇಕು?</h2>
+				<blockquote class="basavanna-quote">
+					ಕನ್ನಡ ನನ್ನ ಮಾತೃಭಾಷೆ. ಇದು ಸಾಕೆಂದು ನಾನು ಭಾವಿಸುವೆ.
+				</blockquote>
+			</section>
+
+			<section class="links kannada-section">
+				<h2>ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ</h2>
 				<ul>
-					<li>Directly encodes the bijective mapping result</li>
-					<li>Fully invertible to page content</li>
-					<li>Can be used directly in API calls</li>
-				</ul>
-			</div>
-
-			<div class="address-type">
-				<h4>2. Hierarchical Address</h4>
-				<code class="address-example">24ea75...849e4ebd.4.4.23.325</code>
+					<li>
+						<a href="{base}/info">ತಾಂತ್ರಿಕ ದಾಖಲೀಕರಣ | Technical Documentation</a>
+					</li>
+					<li>
+						<a href="https://en.wikipedia.org/wiki/The_Library_of_Babel" target="_blank" rel="noopener">
+							ಮೂಲ ಕಥೆ
+						</a> — ಬೋರ್ಗೆಸ್‌ನ ಕಿರು ಕಥೆಯನ್ನು ಓದಿ
+					</li>
+					<li>
+						<a href="https://libraryofbabel.info" target="_blank" rel="noopener">
+							ಮೂಲ ಅನುಷ್ಠಾನ
+						</a> — ಜೊನಾಥನ್ ಬಾಸಿಲ್ ಅವರ ಇಂಗ್ಲಿಷ್ ಆವೃತ್ತಿ
+					</li>
+					<li>
+						<a href="https://youtu.be/GDrBIKOR01c?t=1032" target="_blank" rel="noopener">
+							Vsauce ವಿವರಣೆ
+						</a> — ಮೈಕೆಲ್ ಸ್ಟೀವನ್ಸ್ ಲೈಬ್ರರಿ ಆಫ್ ಬ್ಯಾಬೆಲ್ ಮತ್ತು ಅನಂತತೆಯನ್ನು ಅನ್ವೇಷಿಸುತ್ತಾರೆ
+					</li>
+					</ul>
+			</section>
+		{:else}
+			<!-- English Content -->
+			<section class="intro">
+				<h2>Akshara-Mantapa: A Library of Babel for Kannada</h2>
 				<p>
-					Borges-faithful structure mirroring the physical library:
+					Inspired by Jorge Luis Borges' 1941 short story "The Library of Babel," Akshara-Mantapa
+					brings the concept of an infinite, deterministic library to the Kannada language.
 				</p>
+				<p>
+					The library contains every possible combination of 410-cluster Kannada text. Through an
+					algorithmic bijective mapping, each text has exactly one address, and each address 
+					generates exactly one page. The system is fully invertible: search for any text and 
+					find its unique location; browse any address and deterministically generate its content.
+				</p>
+				<p>
+					With 57,324 grapheme clusters (including consonants, vowels, matras, modifiers, and conjuncts),
+					the library contains 57,324<sup>410</sup> ≈ 10<sup>1,947</sup> possible pages. This number, 
+					while still dwarfed by constructs like <a href="https://en.wikipedia.org/wiki/Graham%27s_number" target="_blank" rel="noopener">Graham's number</a>, is incomprehensibly vast. Yet every 
+					page is instantly accessible and searchable.
+				</p>
+			</section>
+
+			<section class="philosophy">
+				<h2>The Original Vision</h2>
+				<blockquote>
+					"The universe (which others call the Library) is composed of an indefinite and perhaps
+					infinite number of hexagonal galleries, with vast air shafts between, surrounded by very
+					low railings. From any of the hexagons one can see, interminably, the upper and lower floors."
+					<footer>— Jorge Luis Borges, "The Library of Babel"</footer>
+				</blockquote>
+				<p>
+					Borges imagined a library containing all possible 410-page books, each with 40 lines
+					per page and 80 characters per line. Jonathan Basile's <a href="https://libraryofbabel.info" target="_blank" rel="noopener">libraryofbabel.info</a> 
+					brilliantly realized this vision for English with 3,200 characters per page drawn from a 29-character alphabet.
+				</p>
+				<p>
+					Akshara-Mantapa faithfully preserves this structure with 410-cluster pages, but uses 
+					Kannada's 57,324 grapheme clusters instead of the limited Latin alphabet. Each cluster 
+					represents roughly 10<sup>3</sup> times more possibilities than a single Latin character, 
+					creating a space incomparably vaster yet equally navigable.
+				</p>
+				<p>
+					The hierarchical addressing mirrors Borges' physical structure: mandira (room), gode (wall),
+					patti (shelf), pustaka (book), and puta (page). This approach is similar to Basile's 
+					implementation and faithful to Borges' original encoding, though the larger alphabet 
+					results in longer hexadecimal addresses.
+				</p>
+			</section>
+
+			<section class="monkey-theorem">
+				<h2>The Infinite Monkey Theorem</h2>
+				<p>
+					The Library of Babel is closely related to the famous <strong>Infinite Monkey Theorem</strong>, 
+					the idea that a monkey hitting keys at random on a typewriter for an infinite amount of time will 
+					almost surely type any given text, including the complete works of Shakespeare.
+				</p>
+				<p>
+					But here's the twist: Akshara-Mantapa doesn't need infinite time or random chance. Through 
+					deterministic mathematics, every possible text <em>already exists</em> at a calculable address. 
+					The monkey has already typed everything. We just need to know where to look.
+				</p>
+				<blockquote class="basavanna-quote">
+					ಅರಿವೇ ಗುರು<br/>
+					<span class="translation">(Awareness itself is the teacher)</span>
+					<footer>— Basavanna</footer>
+				</blockquote>
+				<p>
+					This transforms a probabilistic thought experiment into a navigable reality. Every Kannada 
+					poem ever written, every poem that could be written, every nonsensical string of characters, 
+					all exist simultaneously, waiting to be discovered.
+				</p>
+			</section>
+
+			<section class="why-section">
+				<h2>Why Build This?</h2>
+				
+				<h3>ಕನ್ನಡ, My Mother Tongue</h3>
+				<p>
+					Kannada is my mother tongue, and I wanted a way to think about infinity in that language. 
+					There's something profound about knowing that every possible expression in your native 
+					script exists somewhere in a mathematical structure. Every story my grandmother could tell, 
+					every poem yet to be composed, every thought waiting to be articulated.
+				</p>
+
+				<h3>The Technical Challenge</h3>
+				<p>
+					Implementing a Library of Babel for an Indic script presents unique challenges that don't 
+					exist for Latin alphabets. Kannada uses grapheme clusters, which are complex combinations of consonants, 
+					vowels, matras, and modifiers that behave as single visual units. Building a bijective mapping 
+					over 57,324 such clusters, ensuring mathematical correctness with around 6,300-bit arithmetic, and 
+					making it all run efficiently in both native and WebAssembly contexts were irresistible 
+					puzzles to solve.
+				</p>
+
+				<h3>Because Why Not?</h3>
+				<p>
+					It's an infinite Pandora's box to build, implement, and improvise upon. The beauty of such 
+					a project is that it's never truly finished. There's always another optimization, another 
+					feature, another way to explore the incomprehensible vastness. Sometimes the best reason 
+					to build something is the sheer joy of building it.
+				</p>
+			</section>
+
+			<section class="links">
+				<h2>Learn More</h2>
 				<ul>
-					<li><strong>mandira</strong> (ಮಂದಿರ): Room identifier (~1,600 hex chars)</li>
-					<li><strong>gode</strong> (ಗೋಡೆ): Wall number (1-4)</li>
-					<li><strong>patti</strong> (ಪಟ್ಟಿ): Shelf number (1-5)</li>
-					<li><strong>pustaka</strong> (ಪುಸ್ತಕ): Book number (1-32)</li>
-					<li><strong>puta</strong> (ಪುಟ): Page number (1-410)</li>
+					<li>
+						<a href="{base}/info">Technical Documentation</a> for how the clustering and encoding works
+					</li>
+					<li>
+						<a href="https://en.wikipedia.org/wiki/The_Library_of_Babel" target="_blank" rel="noopener">
+							Original Story
+						</a> to read Borges' short story
+					</li>
+					<li>
+						<a href="https://libraryofbabel.info" target="_blank" rel="noopener">
+							Original Implementation
+						</a> by Jonathan Basile for the English version
+					</li>
+					<li>
+						<a href="https://youtu.be/GDrBIKOR01c?t=1032" target="_blank" rel="noopener">
+							Vsauce Explanation
+						</a> where Michael Stevens explores the Library of Babel and infinity
+					</li>
+					<li>
+						<a href="https://en.wikipedia.org/wiki/Infinite_monkey_theorem" target="_blank" rel="noopener">
+							Infinite Monkey Theorem
+						</a> on the probabilistic thought experiment
+					</li>
 				</ul>
-				<p class="note">
-					Both formats represent the same page. They are simply different ways of displaying the same underlying address.
-				</p>
-			</div>
-
-		</section>
-
-		<section>
-			<h2>How Content Generation Works</h2>
-
-			<h3>Search: Text → Address</h3>
-			<pre class="code">
-1. Take search query: "ಕನ್ನಡ"
-2. Segment into clusters: ["ಕ", "ನ್", "ನ", "ಡ"]
-3. Convert each cluster to alphabet index
-4. Pad to 410 clusters with spaces (index 0)
-5. Convert to base-56,028 number (content_num)
-6. Apply bijection: address = (content_num × C) mod N
-7. Convert to hex and hierarchical formats</pre>
-
-			<h3>Browse: Address → Text</h3>
-			<pre class="code">
-1. Take hex address (or convert from hierarchical)
-2. Apply inverse: content_num = (address × I) mod N
-3. Convert content_num to 410 base-56,028 indices
-4. Map each index to its grapheme cluster
-5. Format as 41 clusters per line, 10 lines</pre>
-
-			<p class="note">
-				Both operations are O(n²), where n ≈ 6,500 bits. 
-				Despite the enormous address space, generation is instant, usually under a millisecond.
-			</p>
-		</section>
-
-		<section>
-			<h2>Comparison Summary</h2>
-
-			<table class="comparison">
-				<thead>
-					<tr>
-						<th>Aspect</th>
-						<th>Original (English)</th>
-						<th>Akshara-Mantapa (Kannada)</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td>Alphabet Size</td>
-						<td>29 characters</td>
-						<td>56,028 grapheme clusters</td>
-					</tr>
-					<tr>
-						<td>Page Length</td>
-						<td>3,200 characters</td>
-						<td>410 clusters (Borges-faithful)</td>
-					</tr>
-					<tr>
-						<td>Total Pages</td>
-						<td>29<sup>3200</sup> ≈ 10<sup>4677</sup></td>
-						<td>56,028<sup>410</sup> ≈ 10<sup>1947</sup></td>
-					</tr>
-					<tr>
-						<td>Address Size</td>
-						<td>~500 hex chars</td>
-						<td>~1,618 hex chars</td>
-					</tr>
-					<tr>
-						<td>Address System</td>
-						<td>Single invertible (base conversion)</td>
-						<td>Single invertible (multiplicative inverse)</td>
-					</tr>
-					<tr>
-						<td>Hierarchical Display</td>
-						<td>Wall.Shelf.Volume.Page</td>
-						<td>Mandira.Gode.Patti.Pustaka.Puta</td>
-					</tr>
-					<tr>
-						<td>Segmentation</td>
-						<td>Character-by-character</td>
-						<td>Grapheme cluster parsing</td>
-					</tr>
-					<tr>
-						<td>Script Complexity</td>
-						<td>Simple (Latin alphabet)</td>
-						<td>Complex (Indic script with conjuncts)</td>
-					</tr>
-					<tr>
-						<td>All Pages Searchable</td>
-						<td>Yes</td>
-						<td>Yes</td>
-					</tr>
-				</tbody>
-			</table>
-		</section>
-
-		<section>
-			<h2>Technical Implementation</h2>
-			<p>
-				The core library is built with Rust for performance and type safety, compiled to both 
-				native binaries and WebAssembly for browser execution:
-			</p>
-			
-			<h3>Core Library (Rust)</h3>
-			<ul>
-				<li><strong>num-bigint</strong> — Arbitrary precision arithmetic for 6,468-bit numbers</li>
-				<li><strong>num-integer</strong> — Integer operations (GCD for computing modular inverse)</li>
-				<li><strong>Bijection Engine</strong> — Multiplicative inverse modular arithmetic</li>
-				<li><strong>Grapheme Alphabet</strong> — Systematic generation of 56,028 Kannada clusters</li>
-			</ul>
-
-			<h3>Backend (Native)</h3>
-			<ul>
-				<li><strong>Axum</strong> — Modern async web framework</li>
-				<li><strong>Serde</strong> — JSON serialization for API responses</li>
-			</ul>
-
-			<h3>WebAssembly (Browser)</h3>
-			<ul>
-				<li><strong>wasm-bindgen</strong> — Rust-to-JavaScript bindings</li>
-				<li><strong>wasm-pack</strong> — Build tooling for WebAssembly packages</li>
-				<li>Enables client-side computation without server round-trips</li>
-				<li>Same bijection logic runs natively in the browser</li>
-			</ul>
-
-			<h3>Frontend</h3>
-			<ul>
-				<li><strong>SvelteKit</strong> — Reactive UI framework with TypeScript</li>
-				<li>Can use either WASM (client-side) or API (server-side) for computation</li>
-			</ul>
-
-			<p class="note">
-				First startup takes ~5 seconds to compute the bijection constants (C and I) using the
-				extended Euclidean algorithm. Subsequent requests are instant. The WASM build allows 
-				this computation to happen entirely in the browser.
-			</p>
-		</section>
-
-		<section class="links">
-			<h2>Further Reading</h2>
-			<ul>
-				<li>
-					<a href="{base}/about">About Page</a> — Philosophy and background
-				</li>
-				<li>
-					<a href="https://github.com/unicode-org/cldr" target="_blank" rel="noopener">
-						Unicode CLDR
-					</a> — Kannada character specifications
-				</li>
-				<li>
-					<a href="https://libraryofbabel.info/theory.html" target="_blank" rel="noopener">
-						Original Theory
-					</a> — How the English version works
-				</li>
-			</ul>
-		</section>
+			</section>
+		{/if}
 	</article>
 
 	<footer>
-		<p>
-			<a href="{base}/">Return to the Library</a>
+		<p class="return-link">
+			<a href="{base}/">{lang === 'kn' ? 'ಗ್ರಂಥಾಲಯಕ್ಕೆ ಹಿಂತಿರುಗಿ' : 'Return to the Library'}</a>
 		</p>
+		<div class="made-by">
+			<p>{lang === 'kn' ? 'ರಚಿಸಿದವರು' : 'Made by'} <strong>Sanath</strong></p>
+			<p class="links">
+				<a href="https://github.com/sanathNU" target="_blank" rel="noopener">GitHub</a>
+				<span class="separator">•</span>
+				<a href="https://sanathnu.github.io/TechnicaInsania/" target="_blank" rel="noopener">{lang === 'kn' ? 'ವೆಬ್‌ಸೈಟ್' : 'Website'}</a>
+			</p>
+		</div>
 	</footer>
 </div>
 
 <style>
 	.page {
-		max-width: 50em;
+		max-width: 46em;
 		margin: 0 auto;
 		padding: 3em 2em 2em 2em;
 		font-family: 'Georgia', 'Palatino Linotype', 'Book Antiqua', 'Palatino', serif;
@@ -378,6 +274,7 @@ Where:
 
 	.breadcrumb {
 		font-size: 0.9em;
+		margin-bottom: 1em;
 	}
 
 	.breadcrumb a {
@@ -391,205 +288,166 @@ Where:
 		border-bottom-style: solid;
 	}
 
+	.lang-toggle {
+		display: flex;
+		gap: 0.5em;
+		margin-top: 1em;
+	}
+
+	.toggle-btn {
+		font-family: 'Noto Sans Kannada', 'Georgia', serif;
+		font-size: 0.9em;
+		padding: 0.5em 1.25em;
+		border: 1px solid #ccc;
+		border-radius: 2em;
+		background: #fff;
+		color: #666;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.toggle-btn:hover {
+		border-color: #999;
+		color: #333;
+	}
+
+	.toggle-btn.active {
+		background: #1d4ed8;
+		border-color: #1d4ed8;
+		color: #fff;
+	}
+
 	h2 {
-		font-size: 1.4em;
+		font-size: 1.3em;
 		font-weight: normal;
-		margin: 2em 0 0.75em 0;
-		border-bottom: 1px solid #ddd;
+		margin: 1.5em 0 0.75em 0;
+		border-bottom: 1px solid #eee;
 		padding-bottom: 0.25em;
 	}
 
 	h3 {
-		font-size: 1.15em;
+		font-size: 1.1em;
 		font-weight: 600;
-		margin: 1.5em 0 0.5em 0;
-	}
-
-	h4 {
-		font-size: 1.05em;
-		font-weight: 600;
-		margin: 1em 0 0.5em 0;
+		margin: 1.25em 0 0.5em 0;
+		color: #333;
 	}
 
 	section {
 		margin: 2em 0;
 	}
 
-	p {
-		margin: 0 0 1em 0;
-		text-align: justify;
-	}
-
-	a {
-		color: #0066cc;
-		text-decoration: none;
-		border-bottom: 1px solid #ccc;
-	}
-
-	a:hover {
-		border-bottom-color: #0066cc;
-	}
-
-	.kannada-large {
+	.kannada-section {
 		font-family: 'Noto Sans Kannada', serif;
-		font-size: 1.3em;
-		font-weight: 600;
-		color: #c30;
 	}
 
-	.examples {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: 1em;
+	.kannada-section h2 {
+		color: #1d4ed8;
+		border-bottom-color: #e0e0e0;
+	}
+
+	.kannada-section h3 {
+		color: #1d4ed8;
+	}
+
+	.kannada-section p {
+		font-size: 1.05em;
+		line-height: 1.8;
+	}
+
+	.intro p,
+	.philosophy p,
+	.monkey-theorem p,
+	.why-section p {
+		text-align: justify;
+		margin: 0 0 1em 0;
+	}
+
+	blockquote {
 		margin: 1.5em 0;
+		padding: 1em 1.5em;
+		background: #fafafa;
+		border-left: 3px solid #ccc;
+		font-style: italic;
 	}
 
-	.example-card {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		padding: 1em;
+	blockquote footer {
+		margin-top: 0.5em;
+		font-style: normal;
+		font-size: 0.9em;
+		color: #666;
+		border-top: none;
+		padding-top: 0;
+		text-align: left;
+	}
+
+	.basavanna-quote {
+		font-family: 'Noto Sans Kannada', serif;
+		font-size: 1.15em;
+		text-align: center;
+		border-left: none;
+		border-top: 1px solid #ccc;
+		border-bottom: 1px solid #ccc;
+		background: #f8fafc;
+	}
+
+	.basavanna-quote .translation {
+		font-family: 'Georgia', serif;
+		font-size: 0.85em;
+		color: #666;
+		display: block;
+		margin-top: 0.25em;
+	}
+
+	.basavanna-quote footer {
 		text-align: center;
 	}
 
-	.cluster-display {
-		font-family: 'Noto Sans Kannada', serif;
-		font-size: 2.5em;
-		font-weight: 600;
-		color: #c30;
-		margin-bottom: 0.5em;
-	}
-
-	.cluster-desc {
-		font-size: 0.85em;
-		color: #666;
-		font-family: 'Courier New', monospace;
-	}
-
-	.tech-list {
-		margin: 1em 0 1em 1.5em;
-		padding: 0;
-	}
-
-	.tech-list li {
-		margin: 1em 0;
-		padding-left: 0.5em;
-	}
-
-	.tech-list strong {
-		font-weight: 600;
-	}
-
-	.code-block {
-		font-family: 'Courier New', monospace;
-		font-size: 0.85em;
-		background: #f5f5f5;
-		padding: 0.5em;
-		margin: 0.5em 0 0 0;
-		border-left: 3px solid #ccc;
-		color: #333;
-	}
-
-	.address-type {
-		background: #fafafa;
-		border: 1px solid #ddd;
+	.monkey-theorem {
+		background: #fffbeb;
+		border: 1px solid #fcd34d;
 		padding: 1.5em;
-		margin: 1.5em 0;
+		margin: 2em 0;
 	}
 
-	.address-type h4 {
-		margin-top: 0;
+	.monkey-theorem h2 {
+		color: #b45309;
+		border-bottom-color: #fcd34d;
 	}
 
-	.address-example {
-		display: block;
-		font-family: 'Courier New', monospace;
-		font-size: 0.9em;
+	.why-section {
+		background: #f0fdf4;
+		border: 1px solid #86efac;
+		padding: 1.5em;
+		margin: 2em 0;
+	}
+
+	.why-section h2 {
+		color: #166534;
+		border-bottom-color: #86efac;
+	}
+
+	.why-section h3 {
+		color: #15803d;
+	}
+
+	.kannada-section.why-section {
+		background: #f0fdf4;
+		border: 1px solid #86efac;
+	}
+
+	.kannada-section.why-section h2 {
+		color: #166534;
+	}
+
+	.kannada-section.why-section .basavanna-quote {
 		background: #fff;
-		padding: 0.75em;
-		border: 1px solid #ccc;
-		margin: 0.5em 0 1em 0;
-		color: #c30;
-		font-weight: 600;
-	}
-
-	.address-type ul {
-		margin: 0.5em 0 0.5em 1.5em;
-		padding: 0;
-	}
-
-	.address-type li {
-		margin: 0.5em 0;
-	}
-
-	.note {
-		font-size: 0.9em;
-		color: #666;
-		font-style: italic;
-		background: #fff;
-		padding: 0.75em;
-		border-left: 3px solid #999;
-		margin: 1em 0 0 0;
-	}
-
-	code {
-		font-family: 'Courier New', monospace;
-		font-size: 0.9em;
-		background: #f0f0f0;
-		padding: 0.1em 0.3em;
-		border: 1px solid #ddd;
-	}
-
-	pre.code {
-		font-family: 'Courier New', monospace;
-		font-size: 0.85em;
-		background: #f5f5f5;
-		padding: 1em;
-		border: 1px solid #ddd;
-		overflow-x: auto;
-		line-height: 1.5;
-		margin: 1em 0;
-	}
-
-	.comparison {
-		width: 100%;
-		border-collapse: collapse;
-		margin: 1.5em 0;
-		font-size: 0.95em;
-	}
-
-	.comparison th,
-	.comparison td {
-		padding: 0.75em;
-		text-align: left;
-		border: 1px solid #ddd;
-	}
-
-	.comparison thead {
-		background: #f5f5f5;
-		font-weight: 600;
-	}
-
-	.comparison tbody tr:nth-child(even) {
-		background: #fafafa;
-	}
-
-	.comparison sup {
-		font-size: 0.7em;
-	}
-
-	section > ul {
-		margin: 0.5em 0 1em 1.5em;
-		padding: 0;
-	}
-
-	section > ul li {
-		margin: 0.5em 0;
+		border-left: none;
+		font-style: normal;
 	}
 
 	.links ul {
 		list-style: none;
 		padding: 0;
-		margin-left: 0;
 	}
 
 	.links li {
@@ -605,22 +463,78 @@ Where:
 		color: #999;
 	}
 
+	.links a {
+		color: #000;
+		text-decoration: none;
+		border-bottom: 1px solid #ccc;
+	}
+
+	.links a:hover {
+		border-bottom-color: #000;
+	}
+
+	.philosophy a,
+	.intro a,
+	.kannada-section.intro a,
+	.kannada-section.philosophy a {
+		color: #1d4ed8;
+		border-bottom: 1px solid #93c5fd;
+	}
+
+	.philosophy a:hover,
+	.intro a:hover,
+	.kannada-section.intro a:hover,
+	.kannada-section.philosophy a:hover {
+		border-bottom-color: #1d4ed8;
+	}
+
+	sup {
+		font-size: 0.7em;
+	}
+
 	footer {
 		border-top: 1px solid #ccc;
-		padding-top: 1em;
+		padding-top: 1.5em;
 		margin-top: 3em;
 		font-size: 0.9em;
 		color: #666;
 		text-align: center;
 	}
 
-	footer a {
-		color: inherit;
+	.made-by {
+		margin-top: 1em;
+	}
+
+	.made-by p {
+		margin: 0.25em 0;
+	}
+
+	.made-by strong {
+		color: #333;
+	}
+
+	.made-by .links a {
+		color: #1d4ed8;
+		text-decoration: none;
+		border-bottom: 1px solid #93c5fd;
+	}
+
+	.made-by .links a:hover {
+		border-bottom-color: #1d4ed8;
+	}
+
+	.made-by .separator {
+		margin: 0 0.75em;
+		color: #ccc;
+	}
+
+	.return-link a {
+		color: #666;
 		text-decoration: none;
 		border-bottom: 1px dotted #999;
 	}
 
-	footer a:hover {
+	.return-link a:hover {
 		border-bottom-style: solid;
 		color: #000;
 	}
@@ -631,77 +545,51 @@ Where:
 		}
 
 		h1 {
-			font-size: 1.5em;
+			font-size: 1.3em;
+			word-wrap: break-word;
 		}
 
 		h2 {
-			font-size: 1.2em;
+			font-size: 1.15em;
 		}
 
 		h3 {
-			font-size: 1.05em;
+			font-size: 1em;
 		}
 
-		p {
+		.kannada-section p {
+			font-size: 1em;
 			text-align: left;
 		}
 
-		.examples {
-			grid-template-columns: 1fr;
+		.intro p,
+		.philosophy p,
+		.monkey-theorem p,
+		.why-section p {
+			text-align: left;
 		}
 
-		.comparison {
-			font-size: 0.75em;
-			display: block;
-			overflow-x: auto;
-			-webkit-overflow-scrolling: touch;
-		}
-
-		.comparison th,
-		.comparison td {
-			padding: 0.4em;
-			white-space: nowrap;
-		}
-
-		.comparison th:first-child,
-		.comparison td:first-child {
-			white-space: normal;
-			min-width: 80px;
-		}
-
-		pre.code {
-			font-size: 0.75em;
-			padding: 0.75em;
-			overflow-x: auto;
-		}
-
-		.address-type {
+		.monkey-theorem,
+		.why-section {
 			padding: 1em;
 		}
 
-		.address-example {
-			font-size: 0.8em;
-			word-break: break-all;
+		blockquote {
+			padding: 0.75em 1em;
+			font-size: 0.95em;
 		}
 
-		.code-block {
-			font-size: 0.8em;
+		.links li {
+			padding-left: 1.25em;
 		}
 
-		.tech-list {
-			margin-left: 1em;
+		.lang-toggle {
+			flex-wrap: wrap;
 		}
 
-		.note {
-			font-size: 0.85em;
-		}
-
-		.cluster-display {
-			font-size: 2em;
-		}
-
-		.cluster-desc {
-			font-size: 0.8em;
+		.toggle-btn {
+			flex: 1;
+			min-width: 80px;
 		}
 	}
 </style>

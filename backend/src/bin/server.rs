@@ -400,7 +400,7 @@
 
         let library = Arc::new(LibraryOfBabel::new());
         let state = AppState { library };
-
+ 
         let cors = CorsLayer::new()
             .allow_origin(Any)
             .allow_methods([Method::GET, Method::POST])
