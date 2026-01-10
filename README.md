@@ -47,7 +47,7 @@ Where:
 
 This creates a perfect one-to-one mapping between content and addresses.
 
-### Constants (Borges-Faithful)
+### Constants
 
 ```
 ALPHABET_SIZE     = 57,324 grapheme clusters
