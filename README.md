@@ -6,6 +6,8 @@
 
 An infinite library containing all possible combinations of Kannada text, inspired by Jorge Luis Borges' short story "The Library of Babel".
 
+**📖 [Read the blog series on how this was built](https://sanathnu.github.io/blog/web/Ananta-Intro.html)**
+
 ## Concept
 
 This project implements a digital version of the Library of Babel for the Kannada language using a **single, elegant bijective mapping**. Every possible Kannada text of 400 clusters exists at exactly one address, and every address generates exactly one page. The system is fully invertible—you can search for any text and find its unique location, and every location deterministically generates its content.
@@ -338,6 +340,9 @@ The interface follows a minimalistic, scholarly aesthetic:
 > and perhaps infinite number of hexagonal galleries..."
 >
 > — Jorge Luis Borges, "The Library of Babel"
+
+For the full story of why and how this was built, from the philosophical motivations to the mathematical details, read the [blog series](https://sanathnu.github.io/blog/web/Ananta-Intro.html).
+
 
 This implementation proves that with deterministic algorithms and elegant mathematics, we can create an infinite, reproducible space where every possible text exists at a definite, calculable location.
 
