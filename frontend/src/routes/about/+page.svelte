@@ -303,6 +303,7 @@
 		color: #666;
 		cursor: pointer;
 		transition: all 0.2s ease;
+		border-radius: 6px;
 	}
 
 	.toggle-btn:hover {

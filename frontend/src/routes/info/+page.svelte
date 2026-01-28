@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 
-	// Example clusters for demonstration
 	const exampleClusters = [
 		{ cluster: 'ಕ', description: 'Simple consonant: ka' },
-		{ cluster: 'ಕಾ', description: 'Consonant + matra: kā (ka + ā sign)' },
-		{ cluster: 'ಕ್', description: 'Consonant + halant: k (dead consonant)' },
+		{ cluster: 'ಕಾ', description: 'Consonant + matra: kā' },
+		{ cluster: 'ಕ್', description: 'Dead consonant: k (with halant)' },
 		{ cluster: 'ಕ್ಷ', description: 'Conjunct: kṣa (ka + halant + ṣa)' },
 		{ cluster: 'ಕ್ಷಾ', description: 'Conjunct + matra: kṣā' },
-		{ cluster: 'ಕ್ಷಾಂ', description: 'Conjunct + matra + modifier: kṣāṃ' },
+		{ cluster: 'ರ್ನ್', description: 'Dead conjunct: rn (no trailing vowel)' },
 	];
 </script>
 
@@ -40,7 +39,7 @@
 			</ul>
 			<p>
 				Each page contains exactly 3,200 characters (40 lines × 80 characters). This creates
-				29<sup>3200</sup> possible pages—a number so large it dwarfs the number of atoms in the
+				29<sup>3200</sup> possible pages, a number so large it dwarfs the number of atoms in the
 				observable universe.
 			</p>
 			<p>
@@ -81,10 +80,10 @@
 		</section>
 
 		<section>
-			<h2> Grapheme-Based Alphabet</h2>
+			<h2>Grapheme-Based Alphabet</h2>
 			<p>
 				This implementation treats each grapheme cluster as a single "letter" in our alphabet.
-				Instead of 29 characters, we have <strong>56,028 distinct grapheme clusters</strong>.
+				Instead of 29 characters, we have <strong>57,324 distinct grapheme clusters</strong>.
 			</p>
 
 			<h3>Building the Alphabet</h3>
@@ -93,7 +92,7 @@
 			<ol class="tech-list">
 				<li>
 					<strong>Punctuation</strong>: Space, period, comma, etc.
-					<div class="code-block">Examples: " ", ".", ",", "!", "?"</div>
+					<div class="code-block">Examples: " ", ".", ",", "!", "?", "।"</div>
 				</li>
 				<li>
 					<strong>Independent vowels</strong>: ಅ, ಆ, ಇ, ಈ, ಉ, ಊ, ಋ, etc.
@@ -113,19 +112,36 @@
 				</li>
 				<li>
 					<strong>Dead consonants</strong>: ಕ್, ಖ್, ಗ್, etc.
-					<div class="code-block">36 consonants with halant</div>
+					<div class="code-block">36 consonants with halant = 36 clusters</div>
 				</li>
 				<li>
 					<strong>Conjuncts (2-consonant clusters)</strong>: ಕ್ಕ, ಕ್ಖ, ಕ್ಗ, etc.
 					<div class="code-block">36 × 36 = 1,296 base conjuncts</div>
-					<div class="code-block">× 13 matras × (1 + 2 modifiers) = 50,544 additional clusters</div>
-					<div class="code-block">× 2 modifiers = 2,592 additional clusters</div>
+					<div class="code-block">With matras: × 13 × (1 + 2 modifiers) = 50,544 clusters</div>
+					<div class="code-block">With modifiers only: × 2 = 2,592 clusters</div>
+				</li>
+				<li>
+					<strong>Dead conjuncts</strong>: ರ್ನ್, ಸ್ಟ್, ಕ್ಷ್, etc.
+					<div class="code-block">36 × 36 = 1,296 clusters</div>
 				</li>
 			</ol>
 
 			<p>
-				This gives us <strong>56,028 total clusters</strong>—each one a valid, meaningful unit
+				This gives us <strong>57,324 total clusters</strong>, each one a valid, meaningful unit
 				of Kannada text.
+			</p>
+
+			<h3>The Dead Conjunct Problem</h3>
+			<p>
+				A <strong>dead conjunct</strong> occurs when a conjunct itself ends with a halant, indicating 
+				no vowel sound follows. This happens commonly in transliterated English words or Sanskrit terms.
+				For example, "ನಾರ್ಥೆಸ್ಟರ್ನ್" (Northeastern) ends with ರ್ನ್, which is:
+			</p>
+			<div class="code-block">ರ + ್ + ನ + ್ (ra + halant + na + halant)</div>
+			<p>
+				This four-character sequence forms a single visual unit. Without dead conjuncts in the alphabet, 
+				such words would be unsearchable. Adding the 1,296 dead conjuncts (36 × 36) ensures every valid 
+				Kannada text can be found.
 			</p>
 		</section>
 
@@ -144,12 +160,12 @@
 
 			<div class="address-type">
 				<h4>Formula</h4>
-				<pre class="code">content_num = Σ (cluster_index[i] × 56028^i) for i in 0..410
+				<pre class="code">content_num = Σ (cluster_index[i] × 57324^i) for i in 0..400
 address = (content_num × C) mod N
 content_num = (address × I) mod N
 
 Where:
-- N = 56028^410 (modulus, total possible pages)
+- N = 57324^400 (modulus, total possible pages)
 - C = coprime multiplier (chosen at startup)
 - I = C^(-1) mod N (modular inverse)</pre>
 
@@ -165,7 +181,7 @@ Where:
 				<h4>1. Raw Hex Address</h4>
 				<code class="address-example">93cebf0ea1c7096fe3de06fd119f...</code>
 				<p>
-					The raw address is ~1,618 hexadecimal characters (~6,468 bits):
+					The raw address is approximately 1,630 hexadecimal characters (~6,520 bits):
 				</p>
 				<ul>
 					<li>Directly encodes the bijective mapping result</li>
@@ -181,7 +197,7 @@ Where:
 					Borges-faithful structure mirroring the physical library:
 				</p>
 				<ul>
-					<li><strong>mandira</strong> (ಮಂದಿರ): Room identifier (~1,600 hex chars)</li>
+					<li><strong>mandira</strong> (ಮಂದಿರ): Room identifier (~1,610 hex chars)</li>
 					<li><strong>gode</strong> (ಗೋಡೆ): Wall number (1-4)</li>
 					<li><strong>patti</strong> (ಪಟ್ಟಿ): Shelf number (1-5)</li>
 					<li><strong>pustaka</strong> (ಪುಸ್ತಕ): Book number (1-32)</li>
@@ -202,8 +218,8 @@ Where:
 1. Take search query: "ಕನ್ನಡ"
 2. Segment into clusters: ["ಕ", "ನ್", "ನ", "ಡ"]
 3. Convert each cluster to alphabet index
-4. Pad to 410 clusters with spaces (index 0)
-5. Convert to base-56,028 number (content_num)
+4. Pad to 400 clusters with spaces (index 0)
+5. Convert to base-57,324 number (content_num)
 6. Apply bijection: address = (content_num × C) mod N
 7. Convert to hex and hierarchical formats</pre>
 
@@ -211,9 +227,9 @@ Where:
 			<pre class="code">
 1. Take hex address (or convert from hierarchical)
 2. Apply inverse: content_num = (address × I) mod N
-3. Convert content_num to 410 base-56,028 indices
+3. Convert content_num to 400 base-57,324 indices
 4. Map each index to its grapheme cluster
-5. Format as 41 clusters per line, 10 lines</pre>
+5. Format as 25 clusters per line, 16 lines</pre>
 
 			<p class="note">
 				Both operations are O(n²), where n ≈ 6,500 bits. 
@@ -236,22 +252,22 @@ Where:
 					<tr>
 						<td>Alphabet Size</td>
 						<td>29 characters</td>
-						<td>56,028 grapheme clusters</td>
+						<td>57,324 grapheme clusters</td>
 					</tr>
 					<tr>
 						<td>Page Length</td>
 						<td>3,200 characters</td>
-						<td>410 clusters</td>
+						<td>400 clusters (Borges-faithful)</td>
 					</tr>
 					<tr>
 						<td>Total Pages</td>
 						<td>29<sup>3200</sup> ≈ 10<sup>4677</sup></td>
-						<td>56,028<sup>410</sup> ≈ 10<sup>1947</sup></td>
+						<td>57,324<sup>400</sup> ≈ 10<sup>1,903</sup></td>
 					</tr>
 					<tr>
 						<td>Address Size</td>
 						<td>~500 hex chars</td>
-						<td>~1,618 hex chars</td>
+						<td>~1,630 hex chars</td>
 					</tr>
 					<tr>
 						<td>Address System</td>
@@ -288,12 +304,13 @@ Where:
 				The backend is built with Rust for performance and type safety:
 			</p>
 			<ul>
-				<li><strong>Axum</strong> - Modern async web framework</li>
-				<li><strong>num-bigint</strong> - Arbitrary precision arithmetic for 6,468-bit numbers</li>
-				<li><strong>num-integer</strong> - Integer operations (GCD for computing modular inverse)</li>
-				<li><strong>Bijection Engine</strong> - Multiplicative inverse modular arithmetic</li>
-				<li><strong>Grapheme Alphabet</strong> - Systematic generation of 56,028 Kannada clusters</li>
-				<li><strong>Serde</strong> - JSON serialization for API responses</li>
+				<li><strong>Axum</strong> for the async web framework</li>
+				<li><strong>num-bigint</strong> for arbitrary precision arithmetic with ~6,520-bit numbers</li>
+				<li><strong>num-integer</strong> for integer operations like GCD for computing modular inverse</li>
+				<li><strong>Bijection Engine</strong> using multiplicative inverse modular arithmetic</li>
+				<li><strong>Grapheme Alphabet</strong> with systematic generation of 57,324 Kannada clusters</li>
+				<li><strong>Serde</strong> for JSON serialization for API responses</li>
+				<li><strong>wasm-bindgen</strong> for WebAssembly compilation for browser deployment</li>
 			</ul>
 			<p>
 				The frontend uses SvelteKit with TypeScript for a minimal, fast, reactive user interface.
@@ -308,17 +325,17 @@ Where:
 			<h2>Further Reading</h2>
 			<ul>
 				<li>
-					<a href="/about">About Page</a> - Philosophy and background
+					<a href="{base}/about">About Page</a> for philosophy and background
 				</li>
 				<li>
 					<a href="https://github.com/unicode-org/cldr" target="_blank" rel="noopener">
 						Unicode CLDR
-					</a> - Kannada character specifications
+					</a> for Kannada character specifications
 				</li>
 				<li>
 					<a href="https://libraryofbabel.info/theory.html" target="_blank" rel="noopener">
 						Original Theory
-					</a> - How the English version works
+					</a> for how the English version works
 				</li>
 			</ul>
 		</section>
@@ -326,8 +343,16 @@ Where:
 
 	<footer>
 		<p>
-			<a href="..">Return to the Library</a>
+			<a href="{base}/">Return to the Library</a>
 		</p>
+		<div class="made-by">
+			<p>Made by <strong>Sanath</strong></p>
+			<p class="made-by-links">
+				<a href="https://github.com/sanathNU" target="_blank" rel="noopener">GitHub</a>
+				<span class="separator">•</span>
+				<a href="https://sanathnu.github.io/TechnicaInsania/" target="_blank" rel="noopener">Website</a>
+			</p>
+		</div>
 	</footer>
 </div>
 
@@ -410,11 +435,20 @@ Where:
 		border-bottom-color: #0066cc;
 	}
 
+	ul {
+		margin: 0.5em 0 1em 1.5em;
+		padding: 0;
+	}
+
+	li {
+		margin: 0.5em 0;
+	}
+
 	.kannada-large {
 		font-family: 'Noto Sans Kannada', serif;
 		font-size: 1.3em;
 		font-weight: 600;
-		color: #c30;
+		color: #1d4ed8;
 	}
 
 	.examples {
@@ -435,7 +469,7 @@ Where:
 		font-family: 'Noto Sans Kannada', serif;
 		font-size: 2.5em;
 		font-weight: 600;
-		color: #c30;
+		color: #1d4ed8;
 		margin-bottom: 0.5em;
 	}
 
@@ -488,7 +522,7 @@ Where:
 		padding: 0.75em;
 		border: 1px solid #ccc;
 		margin: 0.5em 0 1em 0;
-		color: #c30;
+		color: #1d4ed8;
 		font-weight: 600;
 	}
 
@@ -577,22 +611,49 @@ Where:
 
 	footer {
 		border-top: 1px solid #ccc;
-		padding-top: 1em;
+		padding-top: 1.5em;
 		margin-top: 3em;
 		font-size: 0.9em;
 		color: #666;
 		text-align: center;
 	}
 
-	footer a {
-		color: inherit;
+	footer > p a {
+		color: #666;
 		text-decoration: none;
 		border-bottom: 1px dotted #999;
 	}
 
-	footer a:hover {
+	footer > p a:hover {
 		border-bottom-style: solid;
 		color: #000;
+	}
+
+	.made-by {
+		margin-top: 1em;
+	}
+
+	.made-by p {
+		margin: 0.25em 0;
+	}
+
+	.made-by strong {
+		color: #333;
+	}
+
+	.made-by-links a {
+		color: #1d4ed8;
+		text-decoration: none;
+		border-bottom: 1px solid #93c5fd;
+	}
+
+	.made-by-links a:hover {
+		border-bottom-color: #1d4ed8;
+	}
+
+	.separator {
+		margin: 0 0.75em;
+		color: #ccc;
 	}
 
 	@media (max-width: 768px) {
@@ -604,74 +665,17 @@ Where:
 			font-size: 1.5em;
 		}
 
-		h2 {
-			font-size: 1.2em;
-		}
-
-		h3 {
-			font-size: 1.05em;
-		}
-
-		p {
-			text-align: left;
-		}
-
 		.examples {
 			grid-template-columns: 1fr;
 		}
 
 		.comparison {
-			font-size: 0.75em;
-			display: block;
-			overflow-x: auto;
-			-webkit-overflow-scrolling: touch;
+			font-size: 0.85em;
 		}
 
 		.comparison th,
 		.comparison td {
-			padding: 0.4em;
-			white-space: nowrap;
-		}
-
-		.comparison th:first-child,
-		.comparison td:first-child {
-			white-space: normal;
-			min-width: 80px;
-		}
-
-		pre.code {
-			font-size: 0.75em;
-			padding: 0.75em;
-			overflow-x: auto;
-		}
-
-		.address-type {
-			padding: 1em;
-		}
-
-		.address-example {
-			font-size: 0.8em;
-			word-break: break-all;
-		}
-
-		.code-block {
-			font-size: 0.8em;
-		}
-
-		.tech-list {
-			margin-left: 1em;
-		}
-
-		.note {
-			font-size: 0.85em;
-		}
-
-		.cluster-display {
-			font-size: 2em;
-		}
-
-		.cluster-desc {
-			font-size: 0.8em;
+			padding: 0.5em;
 		}
 	}
 </style>
