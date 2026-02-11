@@ -265,7 +265,7 @@ The system uses **multiplicative inverse modular arithmetic** to create a perfec
    - Segment into grapheme clusters: `["ಕ", "ನ್", "ನ", "ಡ"]`
    - Convert each cluster to its alphabet index
    - Pad to 400 clusters with spaces (index 0)
-   - Treat as base-57,324 number: `content_num = Σ (index[i] × 56028^i)`
+   - Treat as base-57,324 number: `content_num = Σ (index[i] × 57324^i)`
    - Apply bijection: `address = (content_num × C) mod N`
    - Convert to hex and hierarchical format
 
@@ -346,7 +346,7 @@ For the full story of why and how this was built, from the philosophical motivat
 
 This implementation proves that with deterministic algorithms and elegant mathematics, we can create an infinite, reproducible space where every possible text exists at a definite, calculable location.
 
-The use of Kannada script with 57,324 grapheme clusters creates a vastly larger space than the original (29^3200 vs 56028^400), yet remains fully navigable through the bijective mapping.
+The use of Kannada script with 57,324 grapheme clusters creates a vastly larger space than the original (29^3200 vs 57324^400), yet remains fully navigable through the bijective mapping.
 
 **Every possible Kannada text—including this very document—exists somewhere in the library.**
 
