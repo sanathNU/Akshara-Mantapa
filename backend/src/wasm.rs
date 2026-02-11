@@ -14,7 +14,7 @@ impl WasmLibrary {
         console_error_panic_hook::set_once();
 
         Self {
-            library: LibraryOfBabel::new(),
+            library: LibraryOfBabel::kannada();
         }
     }
 
