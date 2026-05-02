@@ -12,7 +12,7 @@
     use tower_http::cors::{Any, CorsLayer};
 
     use akshara_mantapa::{
-        HierarchicalAddress, LibraryOfBabel, Location,
+        engine::GraphemeAlphabet, LibraryOfBabel, Location,
         CLUSTERS_PER_PAGE, PAGES_PER_BOOK, BOOKS_PER_SHELF,
         SHELVES_PER_WALL, WALLS_PER_ROOM,
     };
@@ -23,7 +23,7 @@
 
     #[derive(Clone)]
     struct AppState {
-        library: Arc<LibraryOfBabel>,
+        library: Arc<LibraryOfBabel<GraphemeAlphabet>>,
     }
 
     // ============================================================================
@@ -108,7 +108,7 @@
     // ============================================================================
 
     fn make_hierarchical_display(
-        library: &LibraryOfBabel,
+        library: &LibraryOfBabel<GraphemeAlphabet>,
         location: &Location,
     ) -> HierarchicalDisplay {
         let mandira_kannada = if location.hierarchical.mandira.bits() < 10000 {
@@ -398,7 +398,7 @@
     async fn main() {
         println!("Initializing ಅಕ್ಷರ ಮಂಟಪ...");
 
-        let library = Arc::new(LibraryOfBabel::new());
+        let library = Arc::new(LibraryOfBabel::kannada());
         let state = AppState { library };
 
         let cors = CorsLayer::new()

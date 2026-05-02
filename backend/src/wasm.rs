@@ -1,20 +1,17 @@
 use wasm_bindgen::prelude::*;
-use crate::{LibraryOfBabel, Location, HierarchicalAddress};
+use crate::{engine::GraphemeAlphabet, LibraryOfBabel, Location};
 
 #[wasm_bindgen]
 pub struct WasmLibrary {
-    library: LibraryOfBabel,
+    library: LibraryOfBabel<GraphemeAlphabet>,
 }
 
 #[wasm_bindgen]
 impl WasmLibrary {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        #[cfg(feature = "console_error_panic_hook")]
-        console_error_panic_hook::set_once();
-
         Self {
-            library: LibraryOfBabel::kannada();
+            library: LibraryOfBabel::kannada(),
         }
     }
 
@@ -155,11 +152,6 @@ impl WasmLibrary {
 
 // Private helper methods (not exposed to JS)
 impl WasmLibrary {
-    /// Parse address from hex or hierarchical format
-    fn parse_address(&self, address: &str) -> Option<Location> {
-        self.library.parse_address(address)
-    }
-
     /// Build hierarchical JSON with mandira_kannada (matches server behavior)
     fn build_hierarchical(&self, location: &Location) -> serde_json::Value {
         let mandira_kannada = self.get_mandira_kannada(location);
