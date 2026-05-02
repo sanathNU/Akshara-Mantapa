@@ -2,6 +2,7 @@
 backend/target/
 backend/Cargo.lock
 **/*.rs.bk
+wiki
 
 # Node
 frontend/node_modules/
