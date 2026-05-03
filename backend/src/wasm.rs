@@ -15,6 +15,20 @@ impl WasmLibrary {
         }
     }
 
+    #[wasm_bindgen(js_name = newKannada)]
+    pub fn new_kannada() -> Self {
+        Self {
+            library: LibraryOfBabel::kannada(),
+        }
+    }
+
+    #[wasm_bindgen(js_name = newTelugu)]
+    pub fn new_telugu() -> Self {
+        Self {
+            library: LibraryOfBabel::telugu(),
+        }
+    }
+
     /// Get a page by its hierarchical address
     #[wasm_bindgen(js_name = getPage)]
     pub fn get_page(&self, address: &str) -> String {
