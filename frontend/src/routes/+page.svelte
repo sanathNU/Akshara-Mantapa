@@ -8,9 +8,12 @@
 		getPreviousPage,
 		searchText,
 		searchTextRandom,
+		CURRENT_SCRIPT,
 		type Page,
 		type LocationResponse
 	} from '$lib/api';
+
+	const script = CURRENT_SCRIPT;
 
 	let currentPage: Page | null = null;
 	let searchLocation: LocationResponse | null = null;
@@ -42,7 +45,7 @@
 	let downloadProgress = 0;
 
 	onMount(() => {
-		const saved = localStorage.getItem('akshara-mantapa-history');
+		const saved = localStorage.getItem(script.historyKey);
 		if (saved) {
 			try {
 				history = JSON.parse(saved);
@@ -62,7 +65,7 @@
 		
 		history = history.filter(h => h.address !== page.raw_address);
 		history = [entry, ...history].slice(0, MAX_HISTORY);
-		localStorage.setItem('akshara-mantapa-history', JSON.stringify(history));
+		localStorage.setItem(script.historyKey, JSON.stringify(history));
 	}
 
 	async function loadFromHistory(addr: string) {
@@ -85,7 +88,7 @@
 
 	function clearHistory() {
 		history = [];
-		localStorage.removeItem('akshara-mantapa-history');
+		localStorage.removeItem(script.historyKey);
 	}
 
 	function formatTimestamp(ts: number): string {
@@ -411,8 +414,8 @@ ${page.formatted_content}
 
 <div class="page">
 	<header>
-		<h1>ಅಕ್ಷರ ಮಂಟಪ</h1>
-		<p class="subtitle">Akshara Mantapa: A Library of Babel for Kannada</p>
+		<h1>{script.title}</h1>
+		<p class="subtitle">{script.productName}: {script.description}</p>
 		<nav class="main-nav">
 			<a href="{base}/about">About</a>
 			<span class="nav-separator">•</span>
@@ -421,16 +424,12 @@ ${page.formatted_content}
 	</header>
 
 	<div class="banner">
-		<img src="{base}/main-picture.png" alt="Akshara Mantapa - A Library of Babel for Kannada" />
+		<img src="{base}/main-picture.png" alt="{script.productName} - {script.description}" />
 	</div>
 
 	<article>
 		<section class="intro">
-			<p>
-				An infinite library containing every possible combination of Kannada text.
-				Each page is deterministically generated from a unique address. Search for any
-				Kannada text and discover its exact location in the library. Inspired by Jorge Luis Borges.
-			</p>
+			<p>{script.intro}</p>
 		</section>
 
 		<section class="controls">
@@ -524,17 +523,17 @@ ${page.formatted_content}
 					{#if currentPage.hierarchical.mandira_kannada}
 						<div class="mandira-kannada">
 							<div class="mandira-header">
-								<strong>ಮಂದಿರ (Room):</strong>
+								<strong>{script.mandiraLabel} (Room):</strong>
 								<button class="copy-btn-inline" on:click={() => copyToClipboard(currentPage?.hierarchical.mandira_kannada || '')}>Copy</button>
 							</div>
 							<div class="mandira-text">{truncateMandira(currentPage.hierarchical.mandira_kannada)}</div>
 						</div>
 					{/if}
 					<div class="address-components">
-						ಗೋಡೆ (Wall) {currentPage.hierarchical.gode} •
-						ಪಟ್ಟಿ (Shelf) {currentPage.hierarchical.patti} •
-						ಪುಸ್ತಕ (Book) {currentPage.hierarchical.pustaka} •
-						ಪುಟ (Page) {currentPage.hierarchical.puta}
+						{script.wallLabel} (Wall) {currentPage.hierarchical.gode} •
+						{script.shelfLabel} (Shelf) {currentPage.hierarchical.patti} •
+						{script.bookLabel} (Book) {currentPage.hierarchical.pustaka} •
+						{script.pageLabel} (Page) {currentPage.hierarchical.puta}
 					</div>
 					<div class="address-copy-buttons">
 						<button class="copy-btn" on:click={() => copyToClipboard(currentPage?.raw_address || '')}>Copy Raw Address</button>
@@ -578,13 +577,13 @@ ${page.formatted_content}
 		{/if}
 
 		<section class="search-section">
-			<h2>Search Kannada Text</h2>
+			<h2>{script.searchHeading}</h2>
 			<div class="control-row">
 				<textarea
 					class="kannada-search-input"
 					class:expanded={searchExpanded || searchQuery.length > 0}
 					bind:value={searchQuery}
-					placeholder="Search for Kannada text..."
+					placeholder={script.searchPlaceholder}
 					on:focus={() => searchExpanded = true}
 					on:blur={() => { if (!searchQuery) searchExpanded = false }}
 					on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && performSearch()}
@@ -610,17 +609,17 @@ ${page.formatted_content}
 						{#if searchLocation.hierarchical.mandira_kannada}
 							<div class="mandira-kannada-small">
 								<div class="mandira-header">
-									<strong>ಮಂದಿರ:</strong>
+									<strong>{script.mandiraLabel}:</strong>
 									<button class="copy-btn-inline" on:click={() => copyToClipboard(searchLocation?.hierarchical.mandira_kannada || '')}>Copy</button>
 								</div>
 								<div class="mandira-text">{truncateMandira(searchLocation.hierarchical.mandira_kannada)}</div>
 							</div>
 						{/if}
 						<div class="address-components-search">
-							ಗೋಡೆ (Wall) {searchLocation.hierarchical.gode} •
-							ಪಟ್ಟಿ (Shelf) {searchLocation.hierarchical.patti} •
-							ಪುಸ್ತಕ (Book) {searchLocation.hierarchical.pustaka} •
-							ಪುಟ (Page) {searchLocation.hierarchical.puta}
+							{script.wallLabel} (Wall) {searchLocation.hierarchical.gode} •
+							{script.shelfLabel} (Shelf) {searchLocation.hierarchical.patti} •
+							{script.bookLabel} (Book) {searchLocation.hierarchical.pustaka} •
+							{script.pageLabel} (Page) {searchLocation.hierarchical.puta}
 						</div>
 						<div class="address-copy-buttons">
 							<button class="copy-btn" on:click={() => copyToClipboard(searchLocation?.raw_address || '')}>Copy Raw Address</button>
@@ -788,7 +787,7 @@ ${page.formatted_content}
 	}
 
 	textarea.kannada-search-input {
-		font-family: 'Noto Sans Kannada', inherit;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', inherit;
 		font-size: 0.9em;
 		padding: 0.4em 0.6em;
 		border: 1px solid #ccc;
@@ -912,7 +911,7 @@ ${page.formatted_content}
 	}
 
 	.history-preview {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', serif;
 		font-size: 0.9em;
 		color: #333;
 		flex: 1;
@@ -1024,7 +1023,7 @@ ${page.formatted_content}
 	}
 
 	.mandira-kannada {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', serif;
 		background: #f8fafc;
 		padding: 0.75em;
 		margin: 0.5em 0;
@@ -1035,7 +1034,7 @@ ${page.formatted_content}
 	}
 
 	.mandira-kannada-small {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', serif;
 		background: #f8fafc;
 		padding: 0.5em;
 		margin: 0.5em 0;
@@ -1058,7 +1057,7 @@ ${page.formatted_content}
 	}
 
 	.address-components {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', serif;
 		font-size: 1em;
 		color: #000;
 		margin: 0.75em 0;
@@ -1068,7 +1067,7 @@ ${page.formatted_content}
 	}
 
 	.address-components-search {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', serif;
 		font-size: 0.95em;
 		color: #000;
 		margin: 0.5em 0;
@@ -1156,7 +1155,7 @@ ${page.formatted_content}
 	}
 
 	.content pre {
-		font-family: 'Noto Sans Kannada', 'Tunga', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Tunga', serif;
 		font-size: 0.95em;
 		line-height: 1.8;
 		white-space: pre;

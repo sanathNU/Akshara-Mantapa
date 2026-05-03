@@ -1,10 +1,54 @@
-const API_BASE = 'http://127.0.0.1:3000/api';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:3000/api';
 
 // Detect if we're in production (GitHub Pages) or development (local)
 const USE_WASM = import.meta.env.PROD;
+export type ScriptCode = 'kannada' | 'telugu';
+export const SCRIPT_CODE: ScriptCode =
+	(import.meta.env.VITE_AKSHARA_SCRIPT || '').toLowerCase().startsWith('tel')
+		? 'telugu'
+		: 'kannada';
+
+export const SCRIPT_CONFIG = {
+	kannada: {
+		code: 'kannada',
+		nativeName: 'ಕನ್ನಡ',
+		title: 'ಅಕ್ಷರ ಮಂಟಪ',
+		productName: 'Akshara Mantapa',
+		description: 'A Library of Babel for Kannada',
+		intro:
+			'An infinite library containing every possible combination of Kannada text. Each page is deterministically generated from a unique address. Search for any Kannada text and discover its exact location in the library. Inspired by Jorge Luis Borges.',
+		searchHeading: 'Search Kannada Text',
+		searchPlaceholder: 'Search for Kannada text...',
+		mandiraLabel: 'ಮಂದಿರ',
+		wallLabel: 'ಗೋಡೆ',
+		shelfLabel: 'ಪಟ್ಟಿ',
+		bookLabel: 'ಪುಸ್ತಕ',
+		pageLabel: 'ಪುಟ',
+		historyKey: 'akshara-mantapa-history'
+	},
+	telugu: {
+		code: 'telugu',
+		nativeName: 'తెలుగు',
+		title: 'అక్షర మంటపం',
+		productName: 'Akshara Mantapa',
+		description: 'A Library of Babel for Telugu',
+		intro:
+			'An infinite library containing every possible combination of Telugu text. Each page is deterministically generated from a unique address. Search for any Telugu text and discover its exact location in the library. Inspired by Jorge Luis Borges.',
+		searchHeading: 'Search Telugu Text',
+		searchPlaceholder: 'Search for Telugu text...',
+		mandiraLabel: 'మందిరం',
+		wallLabel: 'గోడ',
+		shelfLabel: 'పట్టి',
+		bookLabel: 'పుస్తకం',
+		pageLabel: 'పుట',
+		historyKey: 'akshara-mantapa-telugu-history'
+	}
+} as const;
+
+export const CURRENT_SCRIPT = SCRIPT_CONFIG[SCRIPT_CODE];
 
 // Debug: Log which mode we're using
-console.log('API Mode:', USE_WASM ? 'WASM' : 'HTTP API');
+console.log('API Mode:', USE_WASM ? 'WASM' : 'HTTP API', 'Script:', SCRIPT_CODE);
 
 export interface HierarchicalDisplay {
 	mandira_hex: string;
@@ -51,7 +95,10 @@ async function getWasmLibrary() {
 			console.log('WASM binary initialized');
 
 			// Create library instance
-			wasmLibrary = new wasm.WasmLibrary();
+			const WasmLibrary = wasm.WasmLibrary as any;
+			wasmLibrary = SCRIPT_CODE === 'telugu' && WasmLibrary.newTelugu
+				? WasmLibrary.newTelugu()
+				: new wasm.WasmLibrary();
 			console.log('WasmLibrary instance created:', wasmLibrary);
 		} catch (error) {
 			console.error('Failed to load WASM module:', error);
