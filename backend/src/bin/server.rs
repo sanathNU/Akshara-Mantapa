@@ -128,6 +128,17 @@
         }
     }
 
+    fn selected_library() -> LibraryOfBabel<GraphemeAlphabet> {
+        match std::env::var("AKSHARA_SCRIPT")
+            .unwrap_or_else(|_| "kannada".to_string())
+            .to_lowercase()
+            .as_str()
+        {
+            "telugu" | "telegu" | "telu" => LibraryOfBabel::telugu(),
+            _ => LibraryOfBabel::kannada(),
+        }
+    }
+
     // ============================================================================
     // Handlers
     // ============================================================================
@@ -135,8 +146,9 @@
     async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
         Json(serde_json::json!({
             "status": "ok",
-            "name": "ಅಕ್ಷರ ಮಂಟಪ",
-            "description": "A Library of Babel for Kannada",
+            "name": state.library.script_name(),
+            "script_code": state.library.script_code(),
+            "description": format!("A Library of Babel for {}", state.library.script_name()),
             "alphabet_size": state.library.alphabet_size(),
             "page_length": state.library.page_length(),
         }))
@@ -396,9 +408,11 @@
 
     #[tokio::main]
     async fn main() {
-        println!("Initializing ಅಕ್ಷರ ಮಂಟಪ...");
+        println!("Initializing Akshara Mantapa...");
 
-        let library = Arc::new(LibraryOfBabel::kannada());
+        let library = Arc::new(selected_library());
+        let script_name = library.script_name().to_string();
+        let script_code = library.script_code().to_string();
         let state = AppState { library };
 
         let cors = CorsLayer::new()
@@ -419,16 +433,18 @@
             .layer(cors)
             .with_state(state);
 
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        let port = std::env::var("AKSHARA_PORT").unwrap_or_else(|_| "3000".to_string());
+        let bind_addr = format!("127.0.0.1:{port}");
+        let listener = tokio::net::TcpListener::bind(&bind_addr)
             .await
             .unwrap();
 
         println!();
         println!("╔══════════════════════════════════════════════════════════════╗");
         println!("║  ಅಕ್ಷರ ಮಂಟಪ | Akshara Mantapa                                ║");
-        println!("║  A Library of Babel for Kannada                              ║");
+        println!("║  A Library of Babel for {script_name} ({script_code})");
         println!("╠══════════════════════════════════════════════════════════════╣");
-        println!("║  Server: http://127.0.0.1:3000                               ║");
+        println!("║  Server: http://{bind_addr}");
         println!("╠══════════════════════════════════════════════════════════════╣");
         println!("║  Endpoints:                                                  ║");
         println!("║    GET /                      Health check                   ║");
