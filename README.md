@@ -2,33 +2,28 @@
 
 ![Akshara Mantapa Banner](frontend/static/main-picture.png)
 
-ಅಕ್ಷರ ಮಂಟಪ. A Kannada-first Library of Babel for Indic scripts.
+ಅಕ್ಷರ ಮಂಟಪ. A Library of Babel for Kannada.
 
-An infinite library containing all possible combinations of Kannada, Telugu, and Tamil text, inspired by Jorge Luis Borges' short story "The Library of Babel".
+An infinite library containing all possible combinations of Kannada text, inspired by Jorge Luis Borges' short story "The Library of Babel".
 
 ## Concept
 
-This project implements a digital version of the Library of Babel for Indic scripts using a **single, elegant bijective mapping**. Kannada is the primary experience, and the engine now keeps Kannada, Telugu, and Tamil libraries available at the same time so the frontend can switch languages live. For each script, every possible 400-cluster page exists at exactly one address, and every address generates exactly one page.
+This project implements a digital version of the Library of Babel for the Kannada language using a **single, elegant bijective mapping**. Every possible Kannada text of 400 clusters exists at exactly one address, and every address generates exactly one page. The system is fully invertible—you can search for any text and find its unique location, and every location deterministically generates its content.
 
 ## Features
 
 - **Browse Random Pages**: Explore random pages from the infinite library
-- **Live Language Switching**: Switch between Kannada, Telugu, and Tamil from the frontend without restarting the backend or rebuilding with env variables
-- **Search for Text**: Find the exact location of text in the selected script instantly (highlighted in blue)
+- **Search for Text**: Find the exact location of any Kannada text instantly (highlighted in blue)
 - **Find Again**: Search for text at random positions within pages (highlighted in yellow)
 - **Navigate by Address**: Jump to any page using hierarchical or hex addresses
 - **Page Navigation**: Browse through pages with Previous/Next buttons with smooth transitions
 - **Hierarchical Display**: Addresses shown as `mandira.gode.patti.pustaka.puta` (Room.Wall.Shelf.Book.Page)
-- **Mandira in Script**: Room identifiers displayed in the selected script for smaller addresses
+- **Mandira as Kannada**: Room identifiers displayed in Kannada script for smaller addresses
 - **Bijective Mapping**: Single invertible system using multiplicative inverse modular arithmetic
-- **Multi-Script Engine**: Built on a generic Brahmic script trait with first-class Kannada, Telugu, and Tamil inventories:
-  - Kannada: **57,324 grapheme clusters**
-  - Telugu: Kannada-like cluster space for Telugu script
-  - Tamil: **20,466 grapheme clusters** including common Grantha letters
-- **Rich Indic Grapheme Support**: Generates script-aware clusters including:
+- **Rich Kannada Script**: Uses **57,324 grapheme clusters** including:
   - Consonants, vowels, and their combinations
-  - Matras (vowel signs) and modifiers
-  - Conjuncts and dead consonants
+  - Matras (vowel signs) and modifiers (ಂ, ಃ)
+  - Conjuncts (consonant clusters like ಕ್ಷ)
   - Punctuation and spaces
 - **Minimalistic Design**: Clean, scholarly aesthetic with serif typography
 - **Dual Mode**: HTTP API for development, WASM for production (GitHub Pages)
@@ -40,12 +35,12 @@ This project implements a digital version of the Library of Babel for Indic scri
 Every page's content is mapped to a unique address using:
 
 ```
-content_num = Σ (cluster_index[i] × alphabet_size^i) for i in 0..400
+content_num = Σ (cluster_index[i] × 57324^i) for i in 0..400
 address = (content_num × C) mod N
 content_num = (address × I) mod N
 
 Where:
-- N = alphabet_size^400 (modulus, the total number of possible pages for the selected script)
+- N = 57324^400 (modulus, the total number of possible pages)
 - C = coprime multiplier
 - I = C^(-1) mod N (modular inverse of C)
 ```
@@ -55,7 +50,7 @@ This creates a perfect one-to-one mapping between content and addresses.
 ### Constants (Borges-Faithful)
 
 ```
-ALPHABET_SIZE     = script-specific (Kannada/Telugu: ~57k, Tamil: 20,466)
+ALPHABET_SIZE     = 57,324 grapheme clusters
 CLUSTERS_PER_PAGE = 400
 PAGES_PER_BOOK    = 410
 BOOKS_PER_SHELF   = 32
@@ -66,10 +61,8 @@ WALLS_PER_ROOM    = 4
 ### Address Space
 
 ```
-Kannada pages  = 57,324^400 ≈ 10^1,899
-Telugu pages   = 57,324^400 ≈ 10^1,899
-Tamil pages    = 20,466^400 ≈ 10^1,724
-Address bits   = script-specific (Kannada/Telugu ≈ 6,308 bits)
+Total pages    = 57,324^400 ≈ 10^1,899
+Address bits   ≈ 6,308 bits (~789 bytes, ~1,578 hex chars)
 ```
 
 ## Address Format
@@ -92,8 +85,8 @@ Components:
 - puta (ಪುಟ): Page number (1-410)
 ```
 
-### Mandira as Script Text
-For smaller addresses (< 10,000 bits), the mandira (room name) is displayed as grapheme clusters in the selected script:
+### Mandira as Kannada
+For smaller addresses (< 10,000 bits), the mandira (room name) is displayed as Kannada grapheme clusters:
 ```
 ಕವಿರಾಜಮಾರ್ಗದಲ್ಲಿಯೇಕನ್ನಡನಾಡಿನ...
 ```
@@ -113,7 +106,7 @@ For smaller addresses (< 10,000 bits), the mandira (room name) is displayed as g
 - **SvelteKit** - Modern, reactive UI framework
 - **TypeScript** - Type-safe development
 - **Vite** - Lightning-fast dev server
-- **Noto Sans Kannada/Telugu/Tamil** - Proper Indic font rendering
+- **Noto Sans Kannada** - Proper Kannada font rendering
 
 ## Project Structure
 
@@ -126,11 +119,7 @@ Akshara-Mantapa/
 │   ├── src/
 │   │   ├── bin/
 │   │   │   └── server.rs        # Axum HTTP server binary
-│   │   ├── engine/              # Generic Brahmic script engine
-│   │   │   ├── alphabet.rs      # Grapheme cluster generation
-│   │   │   ├── kannada.rs       # Kannada script inventory
-│   │   │   ├── telugu.rs        # Telugu script inventory
-│   │   │   └── tamil.rs         # Tamil script inventory
+│   │   ├── alphabet.rs          # Kannada grapheme cluster generation
 │   │   ├── bijection.rs         # Bijective mapping (C, I, mod arithmetic)
 │   │   ├── constants.rs         # Library constants (page size, etc.)
 │   │   ├── lib.rs               # Library entry point
@@ -234,44 +223,33 @@ For static deployment (e.g., GitHub Pages), the frontend uses WASM instead of HT
 
 ## API Endpoints
 
-The backend exposes the following REST API. All library endpoints default to Kannada and accept an optional `script` query parameter:
-
-```text
-script=kannada | telugu | tamil
-```
-
-For example:
-
-```text
-GET /api/random?script=tamil
-GET /api/search?script=telugu&q=తెలుగు
-```
+The backend exposes the following REST API:
 
 ### `GET /`
-Health check endpoint, including the default script and supported script list.
+Health check endpoint.
 
-### `GET /api/info?script=<script>`
-Returns library statistics for the selected script.
+### `GET /api/info`
+Returns library statistics.
 
-### `GET /api/random?script=<script>`
-Generates a random page from the selected script library.
+### `GET /api/random`
+Generates a random page from the library.
 
-### `GET /api/page?script=<script>&address=<address>`
+### `GET /api/page?address=<address>`
 Retrieves a page by address (accepts both hex and hierarchical format).
 
-### `GET /api/page-next?script=<script>&address=<address>`
+### `GET /api/page-next?address=<address>`
 Gets the next page after the given address.
 
-### `GET /api/page-previous?script=<script>&address=<address>`
+### `GET /api/page-previous?address=<address>`
 Gets the previous page before the given address (returns 404 if at first page).
 
-### `GET /api/search?script=<script>&q=<text>`
-Finds an address for text in the selected script embedded in random page content.
+### `GET /api/search?q=<kannada_text>`
+Finds an address for any Kannada text embedded in random page content.
 
-### `GET /api/search-random?script=<script>&q=<text>`
+### `GET /api/search-random?q=<text>`
 Finds text at a random position within a page.
 
-### `GET /api/verify?script=<script>&address=<addr>&text=<text>`
+### `GET /api/verify?address=<addr>&text=<text>`
 Verifies that a text appears at the given address.
 
 ## How It Works
@@ -285,22 +263,16 @@ The system uses **multiplicative inverse modular arithmetic** to create a perfec
    - Segment into grapheme clusters: `["ಕ", "ನ್", "ನ", "ಡ"]`
    - Convert each cluster to its alphabet index
    - Pad to 400 clusters with spaces (index 0)
-   - Treat as a base-`alphabet_size` number: `content_num = Σ (index[i] × alphabet_size^i)`
+   - Treat as base-57,324 number: `content_num = Σ (index[i] × 57324^i)`
    - Apply bijection: `address = (content_num × C) mod N`
    - Convert to hex and hierarchical format
 
 2. **Browse (Address → Text)**:
    - Take hex address
    - Apply inverse: `content_num = (address × I) mod N`
-   - Convert back to base-`alphabet_size` indices
+   - Convert back to base-57,324 indices
    - Map indices to grapheme clusters
    - Format as 25 clusters per line
-
-### Script Hot-Switching
-
-The backend initializes one `LibraryOfBabel` engine per supported script and keeps all of them alive in shared application state. Each HTTP request selects the engine with the `script` query parameter, defaulting to Kannada.
-
-The production frontend uses the same model in WASM: it caches one `WasmLibrary` instance per selected script and swaps between them when the language button changes. The page/search/history state is language-specific, so Kannada remains the main experience while Telugu and Tamil are available in the same running app.
 
 ### Dev vs Production Mode
 
@@ -313,9 +285,9 @@ const USE_WASM = import.meta.env.PROD;
 - **Development**: Uses HTTP fetch to `localhost:3000` backend
 - **Production**: Loads WASM module directly in browser
 
-### Script Character Sets
+### Kannada Character Set
 
-The alphabet generator is script-agnostic. Each script module provides Unicode ranges, consonants, vowels, matras, virama, modifiers, punctuation, and conjunct rules. The generic generator then systematically produces:
+The alphabet systematically generates all valid Kannada grapheme clusters:
 - Punctuation and spaces
 - Independent vowels with optional modifiers
 - Simple consonants
@@ -323,13 +295,7 @@ The alphabet generator is script-agnostic. Each script module provides Unicode r
 - Dead consonants (with halant)
 - Two-consonant conjuncts with all combinations
 
-Current built-in scripts:
-
-| Script | Code | Engine constructor | Notes |
-| --- | --- | --- | --- |
-| Kannada | `kannada` | `LibraryOfBabel::kannada()` | Default/main library, 57,324 clusters |
-| Telugu | `telugu` | `LibraryOfBabel::telugu()` | Sister-script inventory with Kannada-like structure |
-| Tamil | `tamil` | `LibraryOfBabel::tamil()` | 20,466 clusters, includes common Grantha letters |
+This produces exactly **57,324 unique clusters**.
 
 ### Page Specifications
 
@@ -346,7 +312,7 @@ The interface follows a minimalistic, scholarly aesthetic:
 - Clean borders and subtle separators
 - Smooth page transitions with loading indicators
 - Emphasis on readability and content
-- Kannada-first design with Telugu and Tamil available from the same interface
+- Kannada-first design with proper font rendering
 
 ## Performance Characteristics
 
@@ -363,7 +329,7 @@ The interface follows a minimalistic, scholarly aesthetic:
 2. **Mandira Caching** - Cache Kannada mandira conversions
 3. **Rate Limiting** - Protect API from abuse
 4. **LRU Cache** - Cache frequently accessed pages
-5. **More Scripts** - Add Malayalam and other Indic scripts through the existing `BrahmicScript` trait
+5. **Multiple Scripts** - Support for other Indic scripts (Telugu, Tamil, Malayalam)
 6. **Advanced Search** - Regex or pattern-based search
 
 ## Philosophy
@@ -375,9 +341,9 @@ The interface follows a minimalistic, scholarly aesthetic:
 
 This implementation proves that with deterministic algorithms and elegant mathematics, we can create an infinite, reproducible space where every possible text exists at a definite, calculable location.
 
-The use of Indic scripts creates vastly larger spaces than the original Latin-character formulation, yet each script remains fully navigable through the same bijective mapping.
+The use of Kannada script with 57,324 grapheme clusters creates a vastly larger space than the original (29^3200 vs 57324^400), yet remains fully navigable through the bijective mapping.
 
-**Every possible Kannada, Telugu, and Tamil page—including this very document translated into those scripts—exists somewhere in the library.**
+**Every possible Kannada text—including this very document—exists somewhere in the library.**
 
 ## License
 
@@ -388,5 +354,5 @@ This project is open source and available for educational and non-commercial use
 - Jorge Luis Borges for the original concept
 - Jonathan Basile for [libraryofbabel.info](https://libraryofbabel.info)
 - The Rust and SvelteKit communities
-- Unicode Consortium for Indic script standardization
+- Unicode Consortium for Kannada character standardization
 - Gwern Branwen for design inspiration
