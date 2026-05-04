@@ -2,357 +2,95 @@
 
 ![Akshara Mantapa Banner](frontend/static/main-picture.png)
 
-ಅಕ್ಷರ ಮಂಟಪ. A Library of Babel for Kannada.
+ಅಕ್ಷರ ಮಂಟಪ. A Kannada-first Library of Babel for Indic scripts.
 
-An infinite library containing all possible combinations of Kannada text, inspired by Jorge Luis Borges' short story "The Library of Babel".
+An infinite library containing every possible page of Kannada, Telugu, and Tamil text, inspired by Jorge Luis Borges' *The Library of Babel*. Every possible 400-grapheme-cluster page exists at exactly one address within its selected script, and every address always produces the same page.
 
-## Concept
+## What It Does
 
-This project implements a digital version of the Library of Babel for the Kannada language using a **single, elegant bijective mapping**. Every possible Kannada text of 400 clusters exists at exactly one address, and every address generates exactly one page. The system is fully invertible—you can search for any text and find its unique location, and every location deterministically generates its content.
-
-## Features
-
-- **Browse Random Pages**: Explore random pages from the infinite library
-- **Search for Text**: Find the exact location of any Kannada text instantly (highlighted in blue)
-- **Find Again**: Search for text at random positions within pages (highlighted in yellow)
-- **Navigate by Address**: Jump to any page using hierarchical or hex addresses
-- **Page Navigation**: Browse through pages with Previous/Next buttons with smooth transitions
-- **Hierarchical Display**: Addresses shown as `mandira.gode.patti.pustaka.puta` (Room.Wall.Shelf.Book.Page)
-- **Mandira as Kannada**: Room identifiers displayed in Kannada script for smaller addresses
-- **Bijective Mapping**: Single invertible system using multiplicative inverse modular arithmetic
-- **Rich Kannada Script**: Uses **57,324 grapheme clusters** including:
-  - Consonants, vowels, and their combinations
-  - Matras (vowel signs) and modifiers (ಂ, ಃ)
-  - Conjuncts (consonant clusters like ಕ್ಷ)
-  - Punctuation and spaces
-- **Minimalistic Design**: Clean, scholarly aesthetic with serif typography
-- **Dual Mode**: HTTP API for development, WASM for production (GitHub Pages)
-
-## The Mathematics
-
-### Bijection Formula
-
-Every page's content is mapped to a unique address using:
-
-```
-content_num = Σ (cluster_index[i] × 57324^i) for i in 0..400
-address = (content_num × C) mod N
-content_num = (address × I) mod N
-
-Where:
-- N = 57324^400 (modulus, the total number of possible pages)
-- C = coprime multiplier
-- I = C^(-1) mod N (modular inverse of C)
-```
-
-This creates a perfect one-to-one mapping between content and addresses.
-
-### Constants (Borges-Faithful)
-
-```
-ALPHABET_SIZE     = 57,324 grapheme clusters
-CLUSTERS_PER_PAGE = 400
-PAGES_PER_BOOK    = 410
-BOOKS_PER_SHELF   = 32
-SHELVES_PER_WALL  = 5
-WALLS_PER_ROOM    = 4
-```
-
-### Address Space
-
-```
-Total pages    = 57,324^400 ≈ 10^1,899
-Address bits   ≈ 6,308 bits (~789 bytes, ~1,578 hex chars)
-```
-
-## Address Format
-
-### Raw Hex Address
-```
-93cebf0ea1c7096fe3de06fd119faec4c4d549bda55708577c... (~1,578 chars)
-```
-
-### Hierarchical Display
-```
-Format: mandira.gode.patti.pustaka.puta
-Example: 24ea75265...849e4ebd.4.4.23.325
-
-Components:
-- mandira (ಮಂದಿರ): Room identifier in hex (~1,560 chars)
-- gode (ಗೋಡೆ): Wall number (1-4)
-- patti (ಪಟ್ಟಿ): Shelf number (1-5)
-- pustaka (ಪುಸ್ತಕ): Book number (1-32)
-- puta (ಪುಟ): Page number (1-410)
-```
-
-### Mandira as Kannada
-For smaller addresses (< 10,000 bits), the mandira (room name) is displayed as Kannada grapheme clusters:
-```
-ಕವಿರಾಜಮಾರ್ಗದಲ್ಲಿಯೇಕನ್ನಡನಾಡಿನ...
-```
-
-## Tech Stack
-
-### Backend
-- **Rust** - High-performance, memory-safe systems programming
-- **Axum** - Modern async web framework
-- **num-bigint** - Arbitrary precision arithmetic for 6,308-bit numbers
-- **num-integer** - Integer operations (GCD, division with remainder)
-- **Serde** - JSON serialization
-- **Tower-HTTP** - CORS and middleware
-- **wasm-bindgen** - WASM bindings for browser deployment
-
-### Frontend
-- **SvelteKit** - Modern, reactive UI framework
-- **TypeScript** - Type-safe development
-- **Vite** - Lightning-fast dev server
-- **Noto Sans Kannada** - Proper Kannada font rendering
-
-## Project Structure
-
-```
-Akshara-Mantapa/
-├── .github/
-│   └── workflows/
-│       └── deploy.yaml          # GitHub Pages deployment
-├── backend/                     # Rust backend
-│   ├── src/
-│   │   ├── bin/
-│   │   │   └── server.rs        # Axum HTTP server binary
-│   │   ├── alphabet.rs          # Kannada grapheme cluster generation
-│   │   ├── bijection.rs         # Bijective mapping (C, I, mod arithmetic)
-│   │   ├── constants.rs         # Library constants (page size, etc.)
-│   │   ├── lib.rs               # Library entry point
-│   │   ├── library.rs           # Page generation and search
-│   │   ├── types.rs             # Data structures (Address, Page, etc.)
-│   │   └── wasm.rs              # WASM bindings for browser
-│   ├── Cargo.lock
-│   └── Cargo.toml
-├── frontend/                    # SvelteKit frontend
-│   ├── src/
-│   │   ├── lib/
-│   │   │   ├── wasm/            # Compiled WASM files (for production)
-│   │   │   ├── api.ts           # API client / WASM wrapper
-│   │   │   └── index.ts         # Lib exports
-│   │   └── routes/
-│   │       ├── about/
-│   │       │   └── +page.svelte # About page
-│   │       ├── info/
-│   │       │   └── +page.svelte # Technical documentation
-│   │       ├── +layout.svelte   # Root layout with fonts
-│   │       ├── +layout.ts       # Layout config (prerender, ssr)
-│   │       └── +page.svelte     # Main page
-│   ├── static/
-│   │   ├── favicon.svg          # Site favicon
-│   │   ├── main-picture.png     # Banner image
-│   │   └── robots.txt
-│   ├── app.html
-│   ├── svelte.config.js
-│   ├── vite.config.ts
-│   └── package.json
-└── README.md
-```
-
-## Setup and Installation
-
-### Prerequisites
-
-- **Rust** (1.70+): Install from [rustup.rs](https://rustup.rs)
-- **Node.js** (18+): Install from [nodejs.org](https://nodejs.org)
-- **wasm-pack**: Install with `cargo install wasm-pack`
-
-### Development Mode (HTTP API)
-
-#### Backend Setup
-
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-
-2. Build and run the server:
-   ```bash
-   cargo run --bin server --release
-   ```
-
-   The backend will start on `http://127.0.0.1:3000`
-
-   First startup takes a few seconds to compute the bijection constants (C and I).
-
-#### Frontend Setup
-
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-   The frontend will start on `http://localhost:5173`
-
-### Production Mode (WASM)
-
-For static deployment (e.g., GitHub Pages), the frontend uses WASM instead of HTTP API.
-
-1. Build WASM:
-   ```bash
-   cd backend
-   wasm-pack build --target web --features wasm
-   ```
-
-2. Copy WASM files to frontend:
-   ```bash
-   cp -r pkg/* ../frontend/src/lib/wasm/
-   ```
-
-3. Build frontend:
-   ```bash
-   cd frontend
-   npm run build
-   ```
-
-4. The `build/` folder can be deployed to any static host.
-
-## API Endpoints
-
-The backend exposes the following REST API:
-
-### `GET /`
-Health check endpoint.
-
-### `GET /api/info`
-Returns library statistics.
-
-### `GET /api/random`
-Generates a random page from the library.
-
-### `GET /api/page?address=<address>`
-Retrieves a page by address (accepts both hex and hierarchical format).
-
-### `GET /api/page-next?address=<address>`
-Gets the next page after the given address.
-
-### `GET /api/page-previous?address=<address>`
-Gets the previous page before the given address (returns 404 if at first page).
-
-### `GET /api/search?q=<kannada_text>`
-Finds an address for any Kannada text embedded in random page content.
-
-### `GET /api/search-random?q=<text>`
-Finds text at a random position within a page.
-
-### `GET /api/verify?address=<addr>&text=<text>`
-Verifies that a text appears at the given address.
+- Browse random pages from the library
+- Search for text in Kannada, Telugu, or Tamil and find its exact location
+- Search again to place the same text at a different position
+- Navigate directly to a known address
+- Move between neighbouring pages
+- View addresses in a Borges-inspired hierarchy of rooms, walls, shelves, books, and pages
+- Hot-switch between supported Indic scripts from the frontend without restarting the backend
 
 ## How It Works
 
-### Bijective Mapping
+Every page is mapped to a unique address using multiplicative inverse modular arithmetic over a script-specific integer space. The engine is built around a generic Brahmic script abstraction; Kannada, Telugu, and Tamil each provide their own Unicode ranges, consonants, vowels, matras, modifiers, virama, punctuation, and generated grapheme alphabet.
 
-The system uses **multiplicative inverse modular arithmetic** to create a perfect bijection:
+$$a = (p \times C) \mod N \qquad p = (a \times I) \mod N$$
 
-1. **Search (Text → Address)**:
-   - Take input text: `"ಕನ್ನಡ"`
-   - Segment into grapheme clusters: `["ಕ", "ನ್", "ನ", "ಡ"]`
-   - Convert each cluster to its alphabet index
-   - Pad to 400 clusters with spaces (index 0)
-   - Treat as base-57,324 number: `content_num = Σ (index[i] × 57324^i)`
-   - Apply bijection: `address = (content_num × C) mod N`
-   - Convert to hex and hierarchical format
+where $p$ is the page content as a base-$alphabet\_size$ integer, $a$ is the address, $N = alphabet\_size^{400}$, and $I = C^{-1} \bmod N$.
 
-2. **Browse (Address → Text)**:
-   - Take hex address
-   - Apply inverse: `content_num = (address × I) mod N`
-   - Convert back to base-57,324 indices
-   - Map indices to grapheme clusters
-   - Format as 25 clusters per line
+| Script | Selector | Notes |
+|---|---|---|
+| Kannada | `kannada` | Default/main experience, 57,324 grapheme clusters |
+| Telugu | `telugu` | Telugu script engine with a Kannada-like cluster space |
+| Tamil | `tamil` | Tamil script engine with 20,466 grapheme clusters, including common Grantha letters |
 
-### Dev vs Production Mode
+## Engine Hot-Switching
 
-The frontend automatically detects its environment:
+In development, the Axum backend keeps one `LibraryOfBabel` engine per supported script in shared app state. HTTP requests default to Kannada and can select another engine with `script=kannada`, `script=telugu`, or `script=tamil`.
 
-```typescript
-const USE_WASM = import.meta.env.PROD;
+In production, the frontend uses the same model with WebAssembly: it caches one `WasmLibrary` instance per selected script and swaps between them when the language button changes.
+
+## Tech Stack
+
+Rust backend (Axum in development, WebAssembly in production) and SvelteKit frontend, deployed as a static site on GitHub Pages.
+
+## Quick Start
+
+```bash
+# Backend (development server)
+cd backend
+cargo run --bin server --features server --release
+
+# Frontend
+cd frontend
+npm install && npm run dev
 ```
 
-- **Development**: Uses HTTP fetch to `localhost:3000` backend
-- **Production**: Loads WASM module directly in browser
+Full setup instructions, including WASM builds and deployment, are in the [wiki](https://github.com/sanathNU/Akshara-Mantapa/wiki).
 
-### Kannada Character Set
+## API Script Selection
 
-The alphabet systematically generates all valid Kannada grapheme clusters:
-- Punctuation and spaces
-- Independent vowels with optional modifiers
-- Simple consonants
-- Consonants with matras and modifiers
-- Dead consonants (with halant)
-- Two-consonant conjuncts with all combinations
+Library endpoints accept an optional `script` query parameter:
 
-This produces exactly **57,324 unique clusters**.
+```text
+GET /api/random?script=tamil
+GET /api/search?script=telugu&q=తెలుగు
+GET /api/page?script=kannada&address=<address>
+```
 
-### Page Specifications
+If `script` is omitted, Kannada is used.
 
-- **Clusters per page**: 400
-- **Formatted display**: 25 clusters per line, 16 lines
+## Blog Series
 
-## Design Philosophy
+For the full story of how this was built, from the philosophical motivations to the mathematical and engineering details, start with the [blog series](https://sanathnu.github.io/blog/web/Ananta-Intro.html).
 
-The interface follows a minimalistic, scholarly aesthetic:
-- Serif typography (Georgia) for body text
-- Monospace fonts (Courier) for technical details
-- High contrast (black on white)
-- Generous whitespace
-- Clean borders and subtle separators
-- Smooth page transitions with loading indicators
-- Emphasis on readability and content
-- Kannada-first design with proper font rendering
+## Documentation
 
-## Performance Characteristics
+The project wiki covers everything in detail:
 
-- **Text Generation**: O(n²) where n ≈ 6,300 bits - Very fast!
-- **Search**: O(n²) - Instant for any query
-- **Address Parsing**: O(n) - Efficient
-- **No Database**: Everything is deterministic and computed on-demand
-- **First Startup**: ~5 seconds to compute bijection constants
-- **Subsequent Requests**: Milliseconds
-
-## Future Enhancements
-
-1. **Precompute Constants** - Save C and I to files for instant startup
-2. **Mandira Caching** - Cache Kannada mandira conversions
-3. **Rate Limiting** - Protect API from abuse
-4. **LRU Cache** - Cache frequently accessed pages
-5. **Multiple Scripts** - Support for other Indic scripts (Telugu, Tamil, Malayalam)
-6. **Advanced Search** - Regex or pattern-based search
-
-## Philosophy
-
-> "The universe (which others call the Library) is composed of an indefinite
-> and perhaps infinite number of hexagonal galleries..."
->
-> — Jorge Luis Borges, "The Library of Babel"
-
-This implementation proves that with deterministic algorithms and elegant mathematics, we can create an infinite, reproducible space where every possible text exists at a definite, calculable location.
-
-The use of Kannada script with 57,324 grapheme clusters creates a vastly larger space than the original (29^3200 vs 57324^400), yet remains fully navigable through the bijective mapping.
-
-**Every possible Kannada text—including this very document—exists somewhere in the library.**
-
-## License
-
-This project is open source and available for educational and non-commercial use.
+| Page | Description |
+|---|---|
+| [Architecture](https://github.com/sanathNU/Akshara-Mantapa/wiki/Architecture) | Dual-runtime design, module breakdown, tech stack |
+| [Address Format](https://github.com/sanathNU/Akshara-Mantapa/wiki/Address-Format) | Raw hex and hierarchical address systems |
+| [API Reference](https://github.com/sanathNU/Akshara-Mantapa/wiki/API-Reference) | HTTP endpoints and WASM methods |
+| [Development Setup](https://github.com/sanathNU/Akshara-Mantapa/wiki/Development-Setup) | Running locally |
+| [Deployment](https://github.com/sanathNU/Akshara-Mantapa/wiki/Deployment) | GitHub Actions pipeline and Pages config |
+| [Kannada Text Handling](https://github.com/sanathNU/Akshara-Mantapa/wiki/Kannada-Text-Handling) | Grapheme cluster alphabet |
+| [Project Concept](https://github.com/sanathNU/Akshara-Mantapa/wiki/Project-Concept) | Borges inspiration and philosophy |
 
 ## Acknowledgments
 
 - Jorge Luis Borges for the original concept
 - Jonathan Basile for [libraryofbabel.info](https://libraryofbabel.info)
 - The Rust and SvelteKit communities
-- Unicode Consortium for Kannada character standardization
-- Gwern Branwen for design inspiration
+- Unicode Consortium for Indic script standardisation
+
+---
+
+*Every possible Kannada, Telugu, and Tamil page exists somewhere in the library.*
