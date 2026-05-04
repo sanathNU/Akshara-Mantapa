@@ -14,8 +14,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::bijection::BijectionEngine;
 use crate::constants::{CLUSTERS_PER_LINE, CLUSTERS_PER_PAGE};
 use crate::engine::alphabet::Alphabet;
-use crate::engine::{GraphemeAlphabet, Kannada, Telugu};
 use crate::engine::BrahmicScript;
+use crate::engine::{GraphemeAlphabet, Kannada, Tamil, Telugu};
 use crate::types::{HierarchicalAddress, Location, Page, SearchResult};
 
 /// Get current timestamp in nanoseconds (WASM-compatible)
@@ -61,7 +61,10 @@ impl LibraryOfBabel<GraphemeAlphabet> {
     pub fn from_script<S: BrahmicScript>(script: S) -> Self {
         let alphabet = GraphemeAlphabet::from_script(&script);
         let bijection = BijectionEngine::new(alphabet.size());
-        LibraryOfBabel { alphabet, bijection }
+        LibraryOfBabel {
+            alphabet,
+            bijection,
+        }
     }
 
     /// Convenience: Kannada library (ಅಕ್ಷರ ಮಂಟಪ)
@@ -73,6 +76,11 @@ impl LibraryOfBabel<GraphemeAlphabet> {
     pub fn telugu() -> Self {
         Self::from_script(Telugu)
     }
+
+    /// Convenience: Tamil library (அட்சர மண்டபம்)
+    pub fn tamil() -> Self {
+        Self::from_script(Tamil)
+    }
 }
 
 // ── Core API (works with any Alphabet) ─────────────────────────────────
@@ -81,7 +89,10 @@ impl<A: Alphabet> LibraryOfBabel<A> {
     /// Construct from an existing alphabet and bijection engine.
     /// Prefer `from_script()` for built-in scripts.
     pub fn new(alphabet: A, bijection: BijectionEngine) -> Self {
-        LibraryOfBabel { alphabet, bijection }
+        LibraryOfBabel {
+            alphabet,
+            bijection,
+        }
     }
 
     pub fn alphabet(&self) -> &A {
@@ -165,7 +176,7 @@ impl<A: Alphabet> LibraryOfBabel<A> {
     /// with random content surrounding it.
     pub fn search_at_random_position(&self, query: &str) -> Option<SearchResult> {
         let query_indices = self.alphabet.segment(query)?;
-        if query_indices.is_empty() || query_indices.len() >= CLUSTERS_PER_PAGE {
+        if query_indices.is_empty() || query_indices.len() > CLUSTERS_PER_PAGE {
             return None;
         }
 
@@ -254,9 +265,7 @@ impl<A: Alphabet> LibraryOfBabel<A> {
 
     /// Get the previous page (None if at the very first page).
     pub fn previous_page(&self, location: &Location) -> Option<Page> {
-        location
-            .previous()
-            .map(|prev| self.generate_page(&prev))
+        location.previous().map(|prev| self.generate_page(&prev))
     }
 
     // ── Address parsing (script-aware) ─────────────────────────────────
@@ -290,8 +299,7 @@ impl<A: Alphabet> LibraryOfBabel<A> {
                 HierarchicalAddress::from_display_string(&hex_address)
                     .map(Location::from_hierarchical)
             } else {
-                HierarchicalAddress::from_display_string(address)
-                    .map(Location::from_hierarchical)
+                HierarchicalAddress::from_display_string(address).map(Location::from_hierarchical)
             }
         } else if self.alphabet.contains_script_chars(address) {
             let hex = self.script_text_to_hex(address)?;
@@ -337,6 +345,45 @@ impl<A: Alphabet> LibraryOfBabel<A> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn random_position_search_embeds_query_in_non_empty_context() {
+        let library = LibraryOfBabel::kannada();
+        let query = "ಕನ್ನಡ";
+        let query_indices = library.alphabet.segment(query).unwrap();
+        let result = library.search_at_random_position(query).unwrap();
+        let page = library.generate_page(&result.location);
+
+        let position = page
+            .cluster_indices
+            .windows(query_indices.len())
+            .position(|window| window == query_indices.as_slice())
+            .expect("query should be embedded in generated page");
+
+        let has_non_space_context = page
+            .cluster_indices
+            .iter()
+            .enumerate()
+            .any(|(i, &idx)| (i < position || i >= position + query_indices.len()) && idx != 0);
+
+        assert!(has_non_space_context, "search result should not be zero-padded around the query");
+        assert!(page.content.contains(query));
+    }
+
+    #[test]
+    fn random_position_search_accepts_full_page_query() {
+        let library = LibraryOfBabel::kannada();
+        let query = "ಅ".repeat(CLUSTERS_PER_PAGE);
+        let result = library.search_at_random_position(&query).unwrap();
+        let page = library.generate_page(&result.location);
+
+        assert_eq!(page.content, query);
+    }
+}
+
 // ── Backward compatibility ─────────────────────────────────────────────
 
 impl LibraryOfBabel<GraphemeAlphabet> {
@@ -352,8 +399,7 @@ impl LibraryOfBabel<GraphemeAlphabet> {
 
     /// Backward-compatible: check if string contains this library's script.
     pub fn contains_kannada(s: &str) -> bool {
-        s.chars()
-            .any(|c| ('\u{0C80}'..='\u{0CFF}').contains(&c))
+        s.chars().any(|c| ('\u{0C80}'..='\u{0CFF}').contains(&c))
     }
 }
 

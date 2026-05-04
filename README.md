@@ -244,7 +244,7 @@ Gets the next page after the given address.
 Gets the previous page before the given address (returns 404 if at first page).
 
 ### `GET /api/search?q=<kannada_text>`
-Finds the exact location of any Kannada text (text appears at start of page).
+Finds an address for any Kannada text embedded in random page content.
 
 ### `GET /api/search-random?q=<text>`
 Finds text at a random position within a page.

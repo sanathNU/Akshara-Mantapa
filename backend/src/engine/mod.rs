@@ -36,10 +36,12 @@
 
 pub mod alphabet;
 pub mod kannada;
+pub mod tamil;
 pub mod telugu;
 
 pub use alphabet::{Alphabet, GraphemeAlphabet};
 pub use kannada::Kannada;
+pub use tamil::Tamil;
 pub use telugu::Telugu;
 
 /// Trait defining the character inventory of a Brahmic/Indic script.

@@ -2,11 +2,8 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:3000/api';
 
 // Detect if we're in production (GitHub Pages) or development (local)
 const USE_WASM = import.meta.env.PROD;
-export type ScriptCode = 'kannada' | 'telugu';
-export const SCRIPT_CODE: ScriptCode =
-	(import.meta.env.VITE_AKSHARA_SCRIPT || '').toLowerCase().startsWith('tel')
-		? 'telugu'
-		: 'kannada';
+export type ScriptCode = 'kannada' | 'telugu' | 'tamil';
+export const DEFAULT_SCRIPT_CODE: ScriptCode = 'kannada';
 
 export const SCRIPT_CONFIG = {
 	kannada: {
@@ -42,13 +39,30 @@ export const SCRIPT_CONFIG = {
 		bookLabel: 'పుస్తకం',
 		pageLabel: 'పుట',
 		historyKey: 'akshara-mantapa-telugu-history'
+	},
+	tamil: {
+		code: 'tamil',
+		nativeName: 'தமிழ்',
+		title: 'அட்சர மண்டபம்',
+		productName: 'Akshara Mantapa',
+		description: 'A Library of Babel for Tamil',
+		intro:
+			'An infinite library containing every possible combination of Tamil text. Each page is deterministically generated from a unique address. Search for any Tamil text and discover its exact location in the library. Inspired by Jorge Luis Borges.',
+		searchHeading: 'Search Tamil Text',
+		searchPlaceholder: 'Search for Tamil text...',
+		mandiraLabel: 'மண்டபம்',
+		wallLabel: 'சுவர்',
+		shelfLabel: 'அலமாரி',
+		bookLabel: 'புத்தகம்',
+		pageLabel: 'பக்கம்',
+		historyKey: 'akshara-mantapa-tamil-history'
 	}
 } as const;
 
-export const CURRENT_SCRIPT = SCRIPT_CONFIG[SCRIPT_CODE];
+export const CURRENT_SCRIPT = SCRIPT_CONFIG[DEFAULT_SCRIPT_CODE];
 
 // Debug: Log which mode we're using
-console.log('API Mode:', USE_WASM ? 'WASM' : 'HTTP API', 'Script:', SCRIPT_CODE);
+console.log('API Mode:', USE_WASM ? 'WASM' : 'HTTP API');
 
 export interface HierarchicalDisplay {
 	mandira_hex: string;
@@ -79,11 +93,11 @@ export interface SearchResponse {
 	page_preview?: string;
 }
 
-// WASM library singleton
-let wasmLibrary: any = null;
+// WASM library singletons, one per selected script
+const wasmLibraries: Partial<Record<ScriptCode, any>> = {};
 
-async function getWasmLibrary() {
-	if (!wasmLibrary) {
+async function getWasmLibrary(script: ScriptCode = DEFAULT_SCRIPT_CODE) {
+	if (!wasmLibraries[script]) {
 		try {
 			console.log('Loading WASM module from ./wasm/akshara_mantapa.js');
 			const wasm = await import('./wasm/akshara_mantapa.js');
@@ -96,48 +110,63 @@ async function getWasmLibrary() {
 
 			// Create library instance
 			const WasmLibrary = wasm.WasmLibrary as any;
-			wasmLibrary = SCRIPT_CODE === 'telugu' && WasmLibrary.newTelugu
-				? WasmLibrary.newTelugu()
-				: new wasm.WasmLibrary();
-			console.log('WasmLibrary instance created:', wasmLibrary);
+			if (script === 'telugu' && WasmLibrary.newTelugu) {
+				wasmLibraries[script] = WasmLibrary.newTelugu();
+			} else if (script === 'tamil' && WasmLibrary.newTamil) {
+				wasmLibraries[script] = WasmLibrary.newTamil();
+			} else {
+				wasmLibraries[script] = new WasmLibrary();
+			}
+			console.log('WasmLibrary instance created:', script, wasmLibraries[script]);
 		} catch (error) {
 			console.error('Failed to load WASM module:', error);
 			throw new Error('WASM module not available. Make sure to build and copy WASM files.');
 		}
 	}
-	return wasmLibrary;
+	return wasmLibraries[script];
 }
 
-export async function getRandomPage(): Promise<Page> {
+function withScript(script: ScriptCode, params?: Record<string, string>): URLSearchParams {
+	return new URLSearchParams({ ...(params ?? {}), script });
+}
+
+export async function getRandomPage(script: ScriptCode = DEFAULT_SCRIPT_CODE): Promise<Page> {
 	if (USE_WASM) {
-		const lib = await getWasmLibrary();
+		const lib = await getWasmLibrary(script);
 		const jsonString = lib.browseRandom(1);
 		console.log('browseRandom returned JSON:', jsonString);
 		const pages = JSON.parse(jsonString);
 		return pages[0];
 	} else {
-		const response = await fetch(`${API_BASE}/random`);
+		const params = withScript(script);
+		const response = await fetch(`${API_BASE}/random?${params}`);
 		if (!response.ok) throw new Error('Failed to fetch random page');
 		return response.json();
 	}
 }
 
-export async function getPageByAddress(address: string): Promise<Page> {
+export async function getPageByAddress(
+	address: string,
+	script: ScriptCode = DEFAULT_SCRIPT_CODE
+): Promise<Page> {
 	if (USE_WASM) {
-		const lib = await getWasmLibrary();
+		const lib = await getWasmLibrary(script);
 		const jsonString = lib.getPage(address);
 		return JSON.parse(jsonString);
 	} else {
-		const params = new URLSearchParams({ address });
+		const params = withScript(script, { address });
 		const response = await fetch(`${API_BASE}/page?${params}`);
 		if (!response.ok) throw new Error('Failed to fetch page');
 		return response.json();
 	}
 }
 
-export async function getNextPage(address: string): Promise<Page> {
+export async function getNextPage(
+	address: string,
+	script: ScriptCode = DEFAULT_SCRIPT_CODE
+): Promise<Page> {
 	if (USE_WASM) {
-		const lib = await getWasmLibrary();
+		const lib = await getWasmLibrary(script);
 		const result = JSON.parse(lib.next_page(address));
 		if (!result.success) {
 			throw new Error(result.error || 'Failed to get next page');
@@ -149,19 +178,19 @@ export async function getNextPage(address: string): Promise<Page> {
 			formatted_content: result.formatted_content
 		};
 	} else {
-		const params = new URLSearchParams({ address });
-		// const response = await fetch(`${API_BASE}/page-next?${params}`);
-        const url = `${API_BASE}/page-next?${params}`;
-        console.log('Fetching:', url); 
-		const response = await fetch(url);
+		const params = withScript(script, { address });
+		const response = await fetch(`${API_BASE}/page-next?${params}`);
 		if (!response.ok) throw new Error('Failed to fetch next page');
 		return response.json();
 	}
 }
 
-export async function getPreviousPage(address: string): Promise<Page | null> {
+export async function getPreviousPage(
+	address: string,
+	script: ScriptCode = DEFAULT_SCRIPT_CODE
+): Promise<Page | null> {
 	if (USE_WASM) {
-		const lib = await getWasmLibrary();
+		const lib = await getWasmLibrary(script);
 		const result = JSON.parse(lib.previous_page(address));
 		if (!result.success) {
 			if (result.error?.includes('first page')) {
@@ -176,7 +205,7 @@ export async function getPreviousPage(address: string): Promise<Page | null> {
 			formatted_content: result.formatted_content
 		};
 	} else {
-		const params = new URLSearchParams({ address });
+		const params = withScript(script, { address });
 		const response = await fetch(`${API_BASE}/page-previous?${params}`);
 
 		if (response.status === 404) {
@@ -189,26 +218,32 @@ export async function getPreviousPage(address: string): Promise<Page | null> {
 	}
 }
 
-export async function searchText(query: string): Promise<SearchResponse> {
+export async function searchText(
+	query: string,
+	script: ScriptCode = DEFAULT_SCRIPT_CODE
+): Promise<SearchResponse> {
 	if (USE_WASM) {
-		const lib = await getWasmLibrary();
+		const lib = await getWasmLibrary(script);
 		const jsonString = lib.findText(query);
 		return JSON.parse(jsonString);
 	} else {
-		const params = new URLSearchParams({ q: query });
+		const params = withScript(script, { q: query });
 		const response = await fetch(`${API_BASE}/search?${params}`);
 		if (!response.ok) throw new Error('Failed to search');
 		return response.json();
 	}
 }
 
-export async function searchTextRandom(query: string): Promise<SearchResponse> {
+export async function searchTextRandom(
+	query: string,
+	script: ScriptCode = DEFAULT_SCRIPT_CODE
+): Promise<SearchResponse> {
 	if (USE_WASM) {
-		const lib = await getWasmLibrary();
+		const lib = await getWasmLibrary(script);
 		const jsonString = lib.searchText(query);
 		return JSON.parse(jsonString);
 	} else {
-		const params = new URLSearchParams({ q: query });
+		const params = withScript(script, { q: query });
 		const response = await fetch(`${API_BASE}/search-random?${params}`);
 		if (!response.ok) throw new Error('Failed to search at random position');
 		return response.json();
