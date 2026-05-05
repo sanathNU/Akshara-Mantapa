@@ -6,6 +6,8 @@
 
 An infinite library containing every possible page of Kannada, Telugu, and Tamil text, inspired by Jorge Luis Borges' *The Library of Babel*. Every possible 400-grapheme-cluster page exists at exactly one address within its selected script, and every address always produces the same page.
 
+**📖 [Read the blog series on how this was built](https://sanathnu.github.io/blog/web/Ananta-Intro.html)**
+
 ## What It Does
 
 - Browse random pages from the library
