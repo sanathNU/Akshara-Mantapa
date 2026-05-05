@@ -92,7 +92,7 @@ impl BrahmicScript for Kannada {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::alphabet::GraphemeAlphabet;
+    use crate::engine::alphabet::{Alphabet, GraphemeAlphabet};
 
     #[test]
     fn kannada_alphabet_size_is_stable() {
@@ -120,7 +120,6 @@ mod tests {
 
     #[test]
     fn script_detection() {
-        use crate::engine::alphabet::Alphabet;
         let alphabet = GraphemeAlphabet::from_script(&Kannada);
         assert!(alphabet.contains_script_chars("hello ಕನ್ನಡ world"));
         assert!(!alphabet.contains_script_chars("hello world"));

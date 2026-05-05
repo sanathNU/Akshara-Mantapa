@@ -1,20 +1,38 @@
 use wasm_bindgen::prelude::*;
-use crate::{LibraryOfBabel, Location, HierarchicalAddress};
+use crate::{engine::GraphemeAlphabet, LibraryOfBabel, Location};
 
 #[wasm_bindgen]
 pub struct WasmLibrary {
-    library: LibraryOfBabel,
+    library: LibraryOfBabel<GraphemeAlphabet>,
 }
 
 #[wasm_bindgen]
 impl WasmLibrary {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        #[cfg(feature = "console_error_panic_hook")]
-        console_error_panic_hook::set_once();
-
         Self {
-            library: LibraryOfBabel::new(),
+            library: LibraryOfBabel::kannada(),
+        }
+    }
+
+    #[wasm_bindgen(js_name = newKannada)]
+    pub fn new_kannada() -> Self {
+        Self {
+            library: LibraryOfBabel::kannada(),
+        }
+    }
+
+    #[wasm_bindgen(js_name = newTelugu)]
+    pub fn new_telugu() -> Self {
+        Self {
+            library: LibraryOfBabel::telugu(),
+        }
+    }
+
+    #[wasm_bindgen(js_name = newTamil)]
+    pub fn new_tamil() -> Self {
+        Self {
+            library: LibraryOfBabel::tamil(),
         }
     }
 
@@ -35,10 +53,10 @@ impl WasmLibrary {
         }).to_string()
     }
 
-    /// Find the address for given text (appears at start of page)
+    /// Find an address for given text embedded in random page content
     #[wasm_bindgen(js_name = findText)]
     pub fn find_text(&self, text: &str) -> String {
-        match self.library.search(text) {
+        match self.library.search_at_random_position(text) {
             Some(result) => {
                 let page = self.library.generate_page(&result.location);
                 let preview: String = page.content.chars().take(80).collect();
@@ -155,11 +173,6 @@ impl WasmLibrary {
 
 // Private helper methods (not exposed to JS)
 impl WasmLibrary {
-    /// Parse address from hex or hierarchical format
-    fn parse_address(&self, address: &str) -> Option<Location> {
-        self.library.parse_address(address)
-    }
-
     /// Build hierarchical JSON with mandira_kannada (matches server behavior)
     fn build_hierarchical(&self, location: &Location) -> serde_json::Value {
         let mandira_kannada = self.get_mandira_kannada(location);

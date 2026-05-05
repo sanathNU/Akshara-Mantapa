@@ -8,9 +8,16 @@
 		getPreviousPage,
 		searchText,
 		searchTextRandom,
+		DEFAULT_SCRIPT_CODE,
+		SCRIPT_CONFIG,
 		type Page,
-		type LocationResponse
+		type LocationResponse,
+		type ScriptCode
 	} from '$lib/api';
+
+	const availableScripts = Object.values(SCRIPT_CONFIG);
+	let selectedScriptCode: ScriptCode = DEFAULT_SCRIPT_CODE;
+	$: script = SCRIPT_CONFIG[selectedScriptCode];
 
 	let currentPage: Page | null = null;
 	let searchLocation: LocationResponse | null = null;
@@ -18,6 +25,7 @@
 	let searchQuery = '';
 	let searchInfo = '';
 	let loading = false;
+	let searching = false;
 	let navigating = false;
 	let error = '';
 	let address = '';
@@ -42,15 +50,42 @@
 	let downloadProgress = 0;
 
 	onMount(() => {
-		const saved = localStorage.getItem('akshara-mantapa-history');
+		loadHistory();
+	});
+
+	function loadHistory() {
+		const saved = localStorage.getItem(script.historyKey);
 		if (saved) {
 			try {
 				history = JSON.parse(saved);
 			} catch (e) {
 				console.error('Failed to load history:', e);
+				history = [];
 			}
+		} else {
+			history = [];
 		}
-	});
+	}
+
+	function switchScript(code: ScriptCode) {
+		if (code === selectedScriptCode || loading || searching || navigating || downloadingBook) return;
+
+		selectedScriptCode = code;
+		currentPage = null;
+		searchLocation = null;
+		searchResultPage = null;
+		searchQuery = '';
+		searchInfo = '';
+		error = '';
+		address = '';
+		copyMessage = '';
+		lastSearchedText = '';
+		isRandomSearch = false;
+		searchExpanded = false;
+		isAtFirstPage = false;
+		showHistory = false;
+		loadHistory();
+	}
 
 	function addToHistory(page: Page) {
 		const entry = {
@@ -62,7 +97,7 @@
 		
 		history = history.filter(h => h.address !== page.raw_address);
 		history = [entry, ...history].slice(0, MAX_HISTORY);
-		localStorage.setItem('akshara-mantapa-history', JSON.stringify(history));
+		localStorage.setItem(script.historyKey, JSON.stringify(history));
 	}
 
 	async function loadFromHistory(addr: string) {
@@ -73,7 +108,7 @@
 			searchLocation = null;
 			searchResultPage = null;
 			lastSearchedText = '';
-			currentPage = await getPageByAddress(addr);
+			currentPage = await getPageByAddress(addr, selectedScriptCode);
 			isAtFirstPage = checkIfFirstPage(currentPage);
 		} catch (e) {
 			error = 'Failed to load page from history.';
@@ -85,7 +120,7 @@
 
 	function clearHistory() {
 		history = [];
-		localStorage.removeItem('akshara-mantapa-history');
+		localStorage.removeItem(script.historyKey);
 	}
 
 	function formatTimestamp(ts: number): string {
@@ -149,7 +184,7 @@ Pustaka (Book): ${baseAddr.pustaka}
 			for (let i = 1; i <= 410; i++) {
 				downloadProgress = Math.round((i / 410) * 100);
 				
-				const page = await getPageByAddress(currentAddr);
+				const page = await getPageByAddress(currentAddr, selectedScriptCode);
 				
 				bookContent += `
 --- Page ${i} ---
@@ -158,7 +193,7 @@ ${page.formatted_content}
 `;
 				
 				if (i < 410) {
-					const nextPage = await getNextPage(currentAddr);
+					const nextPage = await getNextPage(currentAddr, selectedScriptCode);
 					currentAddr = nextPage.raw_address;
 				}
 				
@@ -214,7 +249,7 @@ ${page.formatted_content}
 			searchLocation = null;
 			searchResultPage = null;
 			lastSearchedText = '';
-			currentPage = await getRandomPage();
+			currentPage = await getRandomPage(selectedScriptCode);
 			addToHistory(currentPage);
 			isAtFirstPage = checkIfFirstPage(currentPage);
 		} catch (e) {
@@ -237,7 +272,7 @@ ${page.formatted_content}
 			searchLocation = null;
 			searchResultPage = null;
 			lastSearchedText = '';
-			currentPage = await getPageByAddress(address);
+			currentPage = await getPageByAddress(address, selectedScriptCode);
 			addToHistory(currentPage);
 			isAtFirstPage = checkIfFirstPage(currentPage);
 		} catch (e) {
@@ -254,7 +289,7 @@ ${page.formatted_content}
 		try {
 			navigating = true;
 			error = '';
-			currentPage = await getNextPage(currentPage.raw_address);
+			currentPage = await getNextPage(currentPage.raw_address, selectedScriptCode);
 			addToHistory(currentPage);
 			isAtFirstPage = false;
 		} catch (e) {
@@ -271,7 +306,7 @@ ${page.formatted_content}
 		try {
 			navigating = true;
 			error = '';
-			const prevPage = await getPreviousPage(currentPage.raw_address);
+			const prevPage = await getPreviousPage(currentPage.raw_address, selectedScriptCode);
 			if (prevPage) {
 				currentPage = prevPage;
 				addToHistory(currentPage);
@@ -294,28 +329,29 @@ ${page.formatted_content}
 		}
 
 		try {
-			loading = true;
+			searching = true;
 			error = '';
-			currentPage = null;
-			searchResultPage = null;
 			const normalizedQuery = searchQuery.replace(/\r?\n/g, ' ');
-			const response = await searchText(normalizedQuery);
+			const response = await searchText(normalizedQuery, selectedScriptCode);
 
 			if (response.found && response.location) {
+				const resultPage = await getPageByAddress(response.location.raw_address, selectedScriptCode);
+				currentPage = null;
 				searchLocation = response.location;
 				lastSearchedText = normalizedQuery;
-				isRandomSearch = false;
-				searchInfo = `Found location for "${response.query}"`;
-				searchResultPage = await getPageByAddress(response.location.raw_address);
+				isRandomSearch = true;
+				searchInfo = `Found "${response.query}" in random page content`;
+				searchResultPage = resultPage;
 			} else {
 				searchLocation = null;
+				searchResultPage = null;
 				searchInfo = `No exact match found for "${response.query}"`;
 			}
 		} catch (e) {
 			error = 'Search failed. Make sure the backend is running.';
 			console.error(e);
 		} finally {
-			loading = false;
+			searching = false;
 		}
 	}
 
@@ -326,28 +362,29 @@ ${page.formatted_content}
 		}
 
 		try {
-			loading = true;
+			searching = true;
 			error = '';
-			currentPage = null;
-			searchResultPage = null;
 			const normalizedQuery = searchQuery.replace(/\r?\n/g, ' ');
-			const response = await searchTextRandom(normalizedQuery);
+			const response = await searchTextRandom(normalizedQuery, selectedScriptCode);
 
 			if (response.found && response.location) {
+				const resultPage = await getPageByAddress(response.location.raw_address, selectedScriptCode);
+				currentPage = null;
 				searchLocation = response.location;
 				lastSearchedText = normalizedQuery;
 				isRandomSearch = true;
 				searchInfo = `Found "${response.query}" at random position`;
-				searchResultPage = await getPageByAddress(response.location.raw_address);
+				searchResultPage = resultPage;
 			} else {
 				searchLocation = null;
+				searchResultPage = null;
 				searchInfo = `Text too long (must be < 410 clusters)`;
 			}
 		} catch (e) {
 			error = 'Random search failed. Make sure the backend is running.';
 			console.error(e);
 		} finally {
-			loading = false;
+			searching = false;
 		}
 	}
 
@@ -411,8 +448,20 @@ ${page.formatted_content}
 
 <div class="page">
 	<header>
-		<h1>ಅಕ್ಷರ ಮಂಟಪ</h1>
-		<p class="subtitle">Akshara Mantapa: A Library of Babel for Kannada</p>
+		<h1>{script.title}</h1>
+		<p class="subtitle">{script.productName}: {script.description}</p>
+		<div class="script-switcher" aria-label="Language">
+			{#each availableScripts as option}
+				<button
+					type="button"
+					class:active={option.code === selectedScriptCode}
+					on:click={() => switchScript(option.code)}
+					disabled={loading || searching || navigating || downloadingBook}
+				>
+					<span>{option.nativeName}</span>
+				</button>
+			{/each}
+		</div>
 		<nav class="main-nav">
 			<a href="{base}/about">About</a>
 			<span class="nav-separator">•</span>
@@ -421,16 +470,12 @@ ${page.formatted_content}
 	</header>
 
 	<div class="banner">
-		<img src="{base}/main-picture.png" alt="Akshara Mantapa - A Library of Babel for Kannada" />
+		<img src="{base}/main-picture.png" alt="{script.productName} - {script.description}" />
 	</div>
 
 	<article>
 		<section class="intro">
-			<p>
-				An infinite library containing every possible combination of Kannada text.
-				Each page is deterministically generated from a unique address. Search for any
-				Kannada text and discover its exact location in the library. Inspired by Jorge Luis Borges.
-			</p>
+			<p>{script.intro}</p>
 		</section>
 
 		<section class="controls">
@@ -524,17 +569,17 @@ ${page.formatted_content}
 					{#if currentPage.hierarchical.mandira_kannada}
 						<div class="mandira-kannada">
 							<div class="mandira-header">
-								<strong>ಮಂದಿರ (Room):</strong>
+								<strong>{script.mandiraLabel} (Room):</strong>
 								<button class="copy-btn-inline" on:click={() => copyToClipboard(currentPage?.hierarchical.mandira_kannada || '')}>Copy</button>
 							</div>
 							<div class="mandira-text">{truncateMandira(currentPage.hierarchical.mandira_kannada)}</div>
 						</div>
 					{/if}
 					<div class="address-components">
-						ಗೋಡೆ (Wall) {currentPage.hierarchical.gode} •
-						ಪಟ್ಟಿ (Shelf) {currentPage.hierarchical.patti} •
-						ಪುಸ್ತಕ (Book) {currentPage.hierarchical.pustaka} •
-						ಪುಟ (Page) {currentPage.hierarchical.puta}
+						{script.wallLabel} (Wall) {currentPage.hierarchical.gode} •
+						{script.shelfLabel} (Shelf) {currentPage.hierarchical.patti} •
+						{script.bookLabel} (Book) {currentPage.hierarchical.pustaka} •
+						{script.pageLabel} (Page) {currentPage.hierarchical.puta}
 					</div>
 					<div class="address-copy-buttons">
 						<button class="copy-btn" on:click={() => copyToClipboard(currentPage?.raw_address || '')}>Copy Raw Address</button>
@@ -578,19 +623,21 @@ ${page.formatted_content}
 		{/if}
 
 		<section class="search-section">
-			<h2>Search Kannada Text</h2>
+			<h2>{script.searchHeading}</h2>
 			<div class="control-row">
 				<textarea
 					class="kannada-search-input"
 					class:expanded={searchExpanded || searchQuery.length > 0}
 					bind:value={searchQuery}
-					placeholder="Search for Kannada text..."
+					placeholder={script.searchPlaceholder}
 					on:focus={() => searchExpanded = true}
 					on:blur={() => { if (!searchQuery) searchExpanded = false }}
 					on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && performSearch()}
 				></textarea>
-				<button on:click={performSearch} disabled={loading}>Search</button>
-				<button on:click={performRandomSearch} disabled={loading} title="Find text at a random position within a page">Find Again</button>
+				<button on:click={performSearch} disabled={loading || searching}>
+					{#if searching}Searching...{:else}Search{/if}
+				</button>
+				<button on:click={performRandomSearch} disabled={loading || searching} title="Find text at a random position within a page">Find Again</button>
 			</div>
 		</section>
 
@@ -599,7 +646,7 @@ ${page.formatted_content}
 		{/if}
 
 		{#if searchLocation}
-			<section class="results">
+			<section class="results" class:is-searching={searching}>
 				<h2>Search Result</h2>
 				{#if copyMessage}
 					<aside class="copy-message">{copyMessage}</aside>
@@ -610,17 +657,17 @@ ${page.formatted_content}
 						{#if searchLocation.hierarchical.mandira_kannada}
 							<div class="mandira-kannada-small">
 								<div class="mandira-header">
-									<strong>ಮಂದಿರ:</strong>
+									<strong>{script.mandiraLabel}:</strong>
 									<button class="copy-btn-inline" on:click={() => copyToClipboard(searchLocation?.hierarchical.mandira_kannada || '')}>Copy</button>
 								</div>
 								<div class="mandira-text">{truncateMandira(searchLocation.hierarchical.mandira_kannada)}</div>
 							</div>
 						{/if}
 						<div class="address-components-search">
-							ಗೋಡೆ (Wall) {searchLocation.hierarchical.gode} •
-							ಪಟ್ಟಿ (Shelf) {searchLocation.hierarchical.patti} •
-							ಪುಸ್ತಕ (Book) {searchLocation.hierarchical.pustaka} •
-							ಪುಟ (Page) {searchLocation.hierarchical.puta}
+							{script.wallLabel} (Wall) {searchLocation.hierarchical.gode} •
+							{script.shelfLabel} (Shelf) {searchLocation.hierarchical.patti} •
+							{script.bookLabel} (Book) {searchLocation.hierarchical.pustaka} •
+							{script.pageLabel} (Page) {searchLocation.hierarchical.puta}
 						</div>
 						<div class="address-copy-buttons">
 							<button class="copy-btn" on:click={() => copyToClipboard(searchLocation?.raw_address || '')}>Copy Raw Address</button>
@@ -694,6 +741,41 @@ ${page.formatted_content}
 		margin: 0 0 0.75em 0;
 		color: #666;
 		font-style: italic;
+	}
+
+	.script-switcher {
+		display: inline-flex;
+		gap: 0;
+		margin: 0.25em 0 0.5em 0;
+		border: 1px solid #bbb;
+		background: #fff;
+	}
+
+	.script-switcher button {
+		border: 0;
+		border-right: 1px solid #bbb;
+		background: #fff;
+		color: #333;
+		padding: 0.35em 0.75em;
+		font: inherit;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', Georgia, serif;
+		cursor: pointer;
+		min-width: 5.5em;
+	}
+
+	.script-switcher button:last-child {
+		border-right: 0;
+	}
+
+	.script-switcher button:hover:not(:disabled),
+	.script-switcher button.active {
+		background: #111;
+		color: #fff;
+	}
+
+	.script-switcher button:disabled {
+		cursor: not-allowed;
+		opacity: 0.55;
 	}
 
 	.main-nav {
@@ -788,7 +870,7 @@ ${page.formatted_content}
 	}
 
 	textarea.kannada-search-input {
-		font-family: 'Noto Sans Kannada', inherit;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', inherit;
 		font-size: 0.9em;
 		padding: 0.4em 0.6em;
 		border: 1px solid #ccc;
@@ -912,7 +994,7 @@ ${page.formatted_content}
 	}
 
 	.history-preview {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
 		font-size: 0.9em;
 		color: #333;
 		flex: 1;
@@ -1024,7 +1106,7 @@ ${page.formatted_content}
 	}
 
 	.mandira-kannada {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
 		background: #f8fafc;
 		padding: 0.75em;
 		margin: 0.5em 0;
@@ -1035,7 +1117,7 @@ ${page.formatted_content}
 	}
 
 	.mandira-kannada-small {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
 		background: #f8fafc;
 		padding: 0.5em;
 		margin: 0.5em 0;
@@ -1058,7 +1140,7 @@ ${page.formatted_content}
 	}
 
 	.address-components {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
 		font-size: 1em;
 		color: #000;
 		margin: 0.75em 0;
@@ -1068,7 +1150,7 @@ ${page.formatted_content}
 	}
 
 	.address-components-search {
-		font-family: 'Noto Sans Kannada', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
 		font-size: 0.95em;
 		color: #000;
 		margin: 0.5em 0;
@@ -1156,7 +1238,7 @@ ${page.formatted_content}
 	}
 
 	.content pre {
-		font-family: 'Noto Sans Kannada', 'Tunga', serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Tunga', serif;
 		font-size: 0.95em;
 		line-height: 1.8;
 		white-space: pre;
@@ -1178,6 +1260,11 @@ ${page.formatted_content}
 
 	.results {
 		margin: 2em 0;
+	}
+
+	.results.is-searching {
+		opacity: 0.72;
+		pointer-events: none;
 	}
 
 	.result-card {
