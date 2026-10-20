@@ -2,26 +2,41 @@
 
 ![Akshara Mantapa Banner](frontend/static/main-picture.png)
 
-ಅಕ್ಷರ ಮಂಟಪ. A Library of Babel for Kannada.
+ಅಕ್ಷರ ಮಂಟಪ. A Kannada-first Library of Babel for Indic scripts.
 
-An infinite library containing every possible page of Kannada text, inspired by Jorge Luis Borges' *The Library of Babel*. Every possible Kannada text of 400 grapheme clusters exists at exactly one address, and every address always produces the same page.
+An infinite library containing every possible page of Kannada, Telugu, and Tamil text, inspired by Jorge Luis Borges' *The Library of Babel*. Every possible 400-grapheme-cluster page exists at exactly one address within its selected script, and every address always produces the same page.
+
+**📖 [Read the blog series on how this was built](https://sanathnu.github.io/blog/web/Ananta-Intro.html)**
 
 ## What It Does
 
 - Browse random pages from the library
-- Search for any Kannada text and find its exact location
+- Search for text in Kannada, Telugu, or Tamil and find its exact location
 - Search again to place the same text at a different position
 - Navigate directly to a known address
 - Move between neighbouring pages
 - View addresses in a Borges-inspired hierarchy of rooms, walls, shelves, books, and pages
+- Hot-switch between supported Indic scripts from the frontend without restarting the backend
 
 ## How It Works
 
-Every page is mapped to a unique address using multiplicative inverse modular arithmetic over a 6,308-bit integer space. The alphabet consists of 57,324 Kannada grapheme clusters. The mapping is fully invertible: text can be converted to an address, and any address can be converted back to text, with no storage required.
+Every page is mapped to a unique address using multiplicative inverse modular arithmetic over a script-specific integer space. The engine is built around a generic Brahmic script abstraction; Kannada, Telugu, and Tamil each provide their own Unicode ranges, consonants, vowels, matras, modifiers, virama, punctuation, and generated grapheme alphabet.
 
 $$a = (p \times C) \mod N \qquad p = (a \times I) \mod N$$
 
-where $p$ is the page content as a base-57,324 integer, $a$ is the address, $N = 57324^{400}$, and $I = C^{-1} \bmod N$.
+where $p$ is the page content as a base-$alphabet\_size$ integer, $a$ is the address, $N = alphabet\_size^{400}$, and $I = C^{-1} \bmod N$.
+
+| Script | Selector | Notes |
+|---|---|---|
+| Kannada | `kannada` | Default/main experience, 57,324 grapheme clusters |
+| Telugu | `telugu` | Telugu script engine with a Kannada-like cluster space |
+| Tamil | `tamil` | Tamil script engine with 20,466 grapheme clusters, including common Grantha letters |
+
+## Engine Hot-Switching
+
+In development, the Axum backend keeps one `LibraryOfBabel` engine per supported script in shared app state. HTTP requests default to Kannada and can select another engine with `script=kannada`, `script=telugu`, or `script=tamil`.
+
+In production, the frontend uses the same model with WebAssembly: it caches one `WasmLibrary` instance per selected script and swaps between them when the language button changes.
 
 ## Tech Stack
 
@@ -40,6 +55,18 @@ npm install && npm run dev
 ```
 
 Full setup instructions, including WASM builds and deployment, are in the [wiki](https://github.com/sanathNU/Akshara-Mantapa/wiki).
+
+## API Script Selection
+
+Library endpoints accept an optional `script` query parameter:
+
+```text
+GET /api/random?script=tamil
+GET /api/search?script=telugu&q=తెలుగు
+GET /api/page?script=kannada&address=<address>
+```
+
+If `script` is omitted, Kannada is used.
 
 ## Blog Series
 
@@ -64,8 +91,8 @@ The project wiki covers everything in detail:
 - Jorge Luis Borges for the original concept
 - Jonathan Basile for [libraryofbabel.info](https://libraryofbabel.info)
 - The Rust and SvelteKit communities
-- Unicode Consortium for Kannada character standardisation
+- Unicode Consortium for Indic script standardisation
 
 ---
 
-*Every possible Kannada text, including this document, exists somewhere in the library.*
+*Every possible Kannada, Telugu, and Tamil page exists somewhere in the library.*
