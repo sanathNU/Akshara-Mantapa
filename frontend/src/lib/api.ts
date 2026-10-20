@@ -27,7 +27,7 @@ export const SCRIPT_CONFIG = {
 		code: 'telugu',
 		nativeName: 'తెలుగు',
 		title: 'అక్షర మంటపం',
-		productName: 'Akshara Mantapa',
+		productName: 'Akshara Mantapam',
 		description: 'A Library of Babel for Telugu',
 		intro:
 			'An infinite library containing every possible combination of Telugu text. Each page is deterministically generated from a unique address. Search for any Telugu text and discover its exact location in the library. Inspired by Jorge Luis Borges.',
@@ -44,7 +44,7 @@ export const SCRIPT_CONFIG = {
 		code: 'tamil',
 		nativeName: 'தமிழ்',
 		title: 'அட்சர மண்டபம்',
-		productName: 'Akshara Mantapa',
+		productName: 'Atchara Mandapam',
 		description: 'A Library of Babel for Tamil',
 		intro:
 			'An infinite library containing every possible combination of Tamil text. Each page is deterministically generated from a unique address. Search for any Tamil text and discover its exact location in the library. Inspired by Jorge Luis Borges.',

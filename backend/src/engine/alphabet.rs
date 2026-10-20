@@ -194,11 +194,17 @@ impl GraphemeAlphabet {
             .max()
             .unwrap_or(1);
 
-        let cluster_to_index: HashMap<String, usize> = clusters
+        let mut cluster_to_index: HashMap<String, usize> = clusters
             .iter()
             .enumerate()
             .map(|(i, s)| (s.clone(), i))
             .collect();
+
+        for (i, cluster) in clusters.iter().enumerate() {
+            for alias in canonical_aliases(cluster) {
+                cluster_to_index.entry(alias).or_insert(i);
+            }
+        }
 
         GraphemeAlphabet {
             clusters,
@@ -209,6 +215,22 @@ impl GraphemeAlphabet {
             unicode_range: script.unicode_range(),
         }
     }
+}
+
+fn canonical_aliases(cluster: &str) -> Vec<String> {
+    let aliases = [
+        ("ொ", "ொ"),
+        ("ோ", "ோ"),
+        ("ௌ", "ௌ"),
+    ];
+
+    let mut result = Vec::new();
+    for (composed, decomposed) in aliases {
+        if cluster.contains(composed) {
+            result.push(cluster.replace(composed, decomposed));
+        }
+    }
+    result
 }
 
 impl Alphabet for GraphemeAlphabet {

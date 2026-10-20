@@ -361,8 +361,8 @@ Where:
 		max-width: 50em;
 		margin: 0 auto;
 		padding: 3em 2em 2em 2em;
-		font-family: 'Georgia', 'Palatino Linotype', 'Book Antiqua', 'Palatino', serif;
-		font-size: 18px;
+		font-family: 'EB Garamond', Garamond, 'Times New Roman', serif;
+		font-size: 20px;
 		line-height: 1.6;
 		color: #000;
 		background: #fff;

@@ -34,6 +34,11 @@
 	let isRandomSearch = false;
 	let searchExpanded = false;
 	let isAtFirstPage = false;
+	let pageDeck: Page[] = [];
+	let deckIndex = -1;
+	const MAX_DECK_PAGES = 20;
+	let visibleDeckPages: Page[] = [];
+	$: visibleDeckPages = pageDeck.slice(Math.max(0, deckIndex - 2), Math.max(0, deckIndex));
 
 	// History state
 	let history: Array<{
@@ -72,6 +77,8 @@
 
 		selectedScriptCode = code;
 		currentPage = null;
+		pageDeck = [];
+		deckIndex = -1;
 		searchLocation = null;
 		searchResultPage = null;
 		searchQuery = '';
@@ -85,6 +92,34 @@
 		isAtFirstPage = false;
 		showHistory = false;
 		loadHistory();
+	}
+
+	function pushDeckPage(page: Page) {
+		const nextDeck = pageDeck.slice(0, deckIndex + 1);
+		nextDeck.push(page);
+		if (nextDeck.length > MAX_DECK_PAGES) nextDeck.shift();
+		pageDeck = nextDeck;
+		deckIndex = pageDeck.length - 1;
+		currentPage = page;
+	}
+
+	function replaceDeckPage(page: Page) {
+		if (deckIndex < 0) {
+			pushDeckPage(page);
+			return;
+		}
+		pageDeck = [...pageDeck.slice(0, deckIndex), page];
+		currentPage = page;
+	}
+
+	function navigateDeck(index: number) {
+		if (index < 0 || index >= pageDeck.length || loading || navigating) return;
+		deckIndex = index;
+		currentPage = pageDeck[index];
+		searchLocation = null;
+		searchResultPage = null;
+		lastSearchedText = '';
+		isAtFirstPage = checkIfFirstPage(pageDeck[index]);
 	}
 
 	function addToHistory(page: Page) {
@@ -108,8 +143,10 @@
 			searchLocation = null;
 			searchResultPage = null;
 			lastSearchedText = '';
-			currentPage = await getPageByAddress(addr, selectedScriptCode);
-			isAtFirstPage = checkIfFirstPage(currentPage);
+			const page = await getPageByAddress(addr, selectedScriptCode);
+			pushDeckPage(page);
+			addToHistory(page);
+			isAtFirstPage = checkIfFirstPage(page);
 		} catch (e) {
 			error = 'Failed to load page from history.';
 			console.error(e);
@@ -249,9 +286,10 @@ ${page.formatted_content}
 			searchLocation = null;
 			searchResultPage = null;
 			lastSearchedText = '';
-			currentPage = await getRandomPage(selectedScriptCode);
-			addToHistory(currentPage);
-			isAtFirstPage = checkIfFirstPage(currentPage);
+			const page = await getRandomPage(selectedScriptCode);
+			pushDeckPage(page);
+			addToHistory(page);
+			isAtFirstPage = checkIfFirstPage(page);
 		} catch (e) {
 			error = 'Failed to load random page. Make sure the backend is running.';
 			console.error(e);
@@ -272,9 +310,10 @@ ${page.formatted_content}
 			searchLocation = null;
 			searchResultPage = null;
 			lastSearchedText = '';
-			currentPage = await getPageByAddress(address, selectedScriptCode);
-			addToHistory(currentPage);
-			isAtFirstPage = checkIfFirstPage(currentPage);
+			const page = await getPageByAddress(address, selectedScriptCode);
+			pushDeckPage(page);
+			addToHistory(page);
+			isAtFirstPage = checkIfFirstPage(page);
 		} catch (e) {
 			error = 'Failed to load page. Check address and backend status.';
 			console.error(e);
@@ -289,8 +328,9 @@ ${page.formatted_content}
 		try {
 			navigating = true;
 			error = '';
-			currentPage = await getNextPage(currentPage.raw_address, selectedScriptCode);
-			addToHistory(currentPage);
+			const page = await getNextPage(currentPage.raw_address, selectedScriptCode);
+			replaceDeckPage(page);
+			addToHistory(page);
 			isAtFirstPage = false;
 		} catch (e) {
 			error = 'Failed to load next page.';
@@ -308,9 +348,9 @@ ${page.formatted_content}
 			error = '';
 			const prevPage = await getPreviousPage(currentPage.raw_address, selectedScriptCode);
 			if (prevPage) {
-				currentPage = prevPage;
-				addToHistory(currentPage);
-				isAtFirstPage = checkIfFirstPage(currentPage);
+				replaceDeckPage(prevPage);
+				addToHistory(prevPage);
+				isAtFirstPage = checkIfFirstPage(prevPage);
 			} else {
 				isAtFirstPage = true;
 			}
@@ -331,7 +371,7 @@ ${page.formatted_content}
 		try {
 			searching = true;
 			error = '';
-			const normalizedQuery = searchQuery.replace(/\r?\n/g, ' ');
+			const normalizedQuery = searchQuery.replace(/\r?\n/g, ' ').normalize('NFC');
 			const response = await searchText(normalizedQuery, selectedScriptCode);
 
 			if (response.found && response.location) {
@@ -364,7 +404,7 @@ ${page.formatted_content}
 		try {
 			searching = true;
 			error = '';
-			const normalizedQuery = searchQuery.replace(/\r?\n/g, ' ');
+			const normalizedQuery = searchQuery.replace(/\r?\n/g, ' ').normalize('NFC');
 			const response = await searchTextRandom(normalizedQuery, selectedScriptCode);
 
 			if (response.found && response.location) {
@@ -390,11 +430,12 @@ ${page.formatted_content}
 
 	async function viewSearchResultAsPage() {
 		if (!searchResultPage) return;
-		currentPage = searchResultPage;
-		addToHistory(currentPage);
+		const page = searchResultPage;
+		pushDeckPage(page);
+		addToHistory(page);
 		searchLocation = null;
 		searchResultPage = null;
-		isAtFirstPage = checkIfFirstPage(currentPage);
+		isAtFirstPage = checkIfFirstPage(page);
 	}
 
 	function getHighlightedContent(content: string, forSearchResult: boolean = false): string {
@@ -532,7 +573,25 @@ ${page.formatted_content}
 		{/if}
 
 		{#if currentPage}
-			<section class="page-display" class:is-navigating={navigating}>
+			<div class="page-stage">
+				{#each visibleDeckPages as stackedPage, offset (stackedPage.raw_address + offset)}
+					<button
+						class="page-underlay"
+						style={`--stack-y: ${(visibleDeckPages.length - offset) * 13}px; --stack-scale: ${1 - (visibleDeckPages.length - offset) * 0.012}; --stack-z: ${3 - (visibleDeckPages.length - offset)}`}
+						on:click={() => navigateDeck(Math.max(0, deckIndex - visibleDeckPages.length) + offset)}
+						aria-label="Return to page {stackedPage.hierarchical.display_string}"
+					>
+						<span class="underlay-address">{stackedPage.hierarchical.display_string}</span>
+						<span class="underlay-preview">{stackedPage.formatted_content.slice(0, 84)}…</span>
+					</button>
+				{/each}
+				{#key deckIndex}
+				<section class="page-display" class:is-navigating={navigating}>
+					<div class="deck-navigation" aria-label="Random page stack navigation">
+						<button class="deck-arrow" on:click={() => navigateDeck(deckIndex - 1)} disabled={deckIndex <= 0 || navigating} aria-label="Previous discovered page">←</button>
+						<span>Page {deckIndex + 1} <span class="deck-of">of {pageDeck.length}</span></span>
+						<button class="deck-arrow" on:click={() => navigateDeck(deckIndex + 1)} disabled={deckIndex >= pageDeck.length - 1 || navigating} aria-label="Next discovered page">→</button>
+					</div>
 				<div class="page-header">
 					<h2>
 						Page Content
@@ -620,6 +679,8 @@ ${page.formatted_content}
 					</button>
 				</div>
 			</section>
+				{/key}
+			</div>
 		{/if}
 
 		<section class="search-section">
@@ -710,8 +771,8 @@ ${page.formatted_content}
 	:global(body) {
 		margin: 0;
 		padding: 0;
-		font-family: 'Georgia', 'Palatino Linotype', 'Book Antiqua', 'Palatino', serif;
-		font-size: 18px;
+		font-family: 'EB Garamond', Garamond, 'Times New Roman', serif;
+		font-size: 20px;
 		line-height: 1.6;
 		color: #000;
 		background: #fff;
@@ -747,20 +808,22 @@ ${page.formatted_content}
 		display: inline-flex;
 		gap: 0;
 		margin: 0.25em 0 0.5em 0;
-		border: 1px solid #bbb;
+		border: 1px solid #aaa;
 		background: #fff;
 	}
 
 	.script-switcher button {
 		border: 0;
-		border-right: 1px solid #bbb;
+		border-right: 1px solid #aaa;
 		background: #fff;
 		color: #333;
 		padding: 0.35em 0.75em;
 		font: inherit;
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', Georgia, serif;
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', 'EB Garamond', serif;
 		cursor: pointer;
 		min-width: 5.5em;
+		border-radius: 0;
+		transition: background 0.15s ease, color 0.15s ease;
 	}
 
 	.script-switcher button:last-child {
@@ -832,17 +895,19 @@ ${page.formatted_content}
 	}
 
 	.controls {
-		background: #fafafa;
+		background: #fff;
 		border: 1px solid #ddd;
 		padding: 1.5em;
 		margin: 2em 0;
+		border-radius: 6px;
 	}
 
 	.search-section {
-		background: #fafafa;
+		background: #fff;
 		border: 1px solid #ddd;
 		padding: 1.5em;
 		margin: 2em 0;
+		border-radius: 6px;
 	}
 
 	.search-section h2 {
@@ -867,6 +932,7 @@ ${page.formatted_content}
 		border: 1px solid #ccc;
 		background: #fff;
 		flex: 1;
+		border-radius: 4px;
 	}
 
 	textarea.kannada-search-input {
@@ -881,6 +947,7 @@ ${page.formatted_content}
 		resize: vertical;
 		line-height: 1.6;
 		transition: height 0.25s ease;
+		border-radius: 4px;
 	}
 
 	textarea.kannada-search-input:focus,
@@ -903,6 +970,7 @@ ${page.formatted_content}
 		color: #000;
 		cursor: pointer;
 		transition: background 0.15s ease, color 0.15s ease;
+		border-radius: 3px;
 	}
 
 	button:hover:not(:disabled) {
@@ -1024,8 +1092,8 @@ ${page.formatted_content}
 	}
 
 	.search-info-message {
-		background: #e8f4f8;
-		border-left: 3px solid #4a90e2;
+		background: #f5f5f5;
+		border-left: 3px solid #777;
 		padding: 1em;
 		margin: 1em 0;
 		font-size: 0.95em;
@@ -1048,9 +1116,101 @@ ${page.formatted_content}
 		margin: 2em 0;
 	}
 
+	.page-stage {
+		position: relative;
+		isolation: isolate;
+		margin: 2em 0 3.5em;
+	}
+
+	.page-underlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		gap: 0.1em;
+		width: 100%;
+		min-height: 100%;
+		padding: 1em 1.5em 0.85em;
+		overflow: hidden;
+		border: 1px solid #ccc;
+		border-radius: 8px;
+		background: #fafafa;
+		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+		color: #666;
+		text-align: left;
+		transform: translateY(var(--stack-y)) scale(var(--stack-scale));
+		transform-origin: center top;
+		z-index: var(--stack-z);
+		cursor: pointer;
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.page-underlay:hover {
+		background: #f7f7f7;
+		color: #111;
+		box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+	}
+
+	.underlay-address {
+		font-size: 0.68em;
+		font-family: 'Courier New', monospace;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		overflow: hidden;
+	}
+
+	.underlay-preview {
+		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', 'EB Garamond', serif;
+		font-size: 0.78em;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		overflow: hidden;
+	}
+
 	.page-display {
-		margin: 2em 0;
+		position: relative;
+		z-index: 4;
+		margin: 0;
+		padding: 1.25em;
+		border: 1px solid #ccc;
+		border-radius: 8px;
+		background: #fff;
+		box-shadow: 0 5px 14px rgba(0, 0, 0, 0.07);
 		transition: opacity 0.2s ease;
+	}
+
+	.deck-navigation {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 0.85em;
+		margin: 0 0 1.1em;
+		color: #555;
+		font-size: 0.82em;
+	}
+
+	.deck-of {
+		color: #888;
+	}
+
+	.deck-arrow {
+		display: inline-grid;
+		place-items: center;
+		width: 2.1em;
+		height: 2.1em;
+		padding: 0;
+		border: 1px solid #999;
+		border-radius: 50%;
+		background: #fff;
+		color: #111;
+		font-size: 1.05em;
+	}
+
+	.deck-arrow:hover:not(:disabled) {
+		border-color: #111;
+		background: #111;
+		color: #fff;
 	}
 
 	.page-display.is-navigating {
@@ -1107,22 +1267,22 @@ ${page.formatted_content}
 
 	.mandira-kannada {
 		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
-		background: #f8fafc;
+		background: #f6f6f6;
 		padding: 0.75em;
 		margin: 0.5em 0;
-		border-left: 3px solid #2563eb;
-		color: #1d4ed8;
+		border-left: 3px solid #777;
+		color: #111;
 		font-size: 1.05em;
 		line-height: 1.6;
 	}
 
 	.mandira-kannada-small {
 		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
-		background: #f8fafc;
+		background: #f6f6f6;
 		padding: 0.5em;
 		margin: 0.5em 0;
-		border-left: 3px solid #2563eb;
-		color: #1d4ed8;
+		border-left: 3px solid #777;
+		color: #111;
 		font-size: 0.95em;
 		line-height: 1.6;
 	}
@@ -1214,13 +1374,13 @@ ${page.formatted_content}
 	.download-btn {
 		font-size: 0.75em;
 		padding: 0.3em 0.6em;
-		border: 1px solid #166534;
-		background: #f0fdf4;
-		color: #166534;
+		border: 1px solid #666;
+		background: #fff;
+		color: #222;
 	}
 
 	.download-btn:hover:not(:disabled) {
-		background: #166534;
+		background: #111;
 		color: #fff;
 	}
 
@@ -1235,6 +1395,7 @@ ${page.formatted_content}
 		padding: 1.5em;
 		margin: 1em 0;
 		overflow-x: auto;
+		border-radius: 4px;
 	}
 
 	.content pre {
@@ -1272,6 +1433,7 @@ ${page.formatted_content}
 		border: 1px solid #ddd;
 		padding: 1.5em;
 		margin-top: 1em;
+		border-radius: 6px;
 	}
 
 	.result-info {
@@ -1305,13 +1467,13 @@ ${page.formatted_content}
 	}
 
 	.made-by-links a {
-		color: #1d4ed8;
+		color: #111;
 		text-decoration: none;
-		border-bottom: 1px solid #93c5fd;
+		border-bottom: 1px solid #aaa;
 	}
 
 	.made-by-links a:hover {
-		border-bottom-color: #1d4ed8;
+		border-bottom-color: #111;
 	}
 
 	.separator {
@@ -1343,6 +1505,14 @@ ${page.formatted_content}
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 0.75em;
+		}
+
+		.page-display {
+			padding: 1em;
+		}
+
+		.page-underlay {
+			padding-inline: 1em;
 		}
 
 		.page-navigation-bottom {

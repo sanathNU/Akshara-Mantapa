@@ -33,6 +33,9 @@
 			<!-- Kannada Content -->
 			<section class="intro kannada-section">
 				<h2>ಅಕ್ಷರ ಮಂಟಪ</h2>
+				<p class="origin-note">
+					ಈ ಪುಟದ ಮೂಲ ಭಾಷೆ ಕನ್ನಡ. ಅಕ್ಷರ ಮಂಟಪ ಕನ್ನಡದಲ್ಲೇ ಆರಂಭವಾಯಿತು; ಆದ್ದರಿಂದ ಕನ್ನಡ ಆವೃತ್ತಿಯೇ ಇದರ ಮೂಲರೂಪ. ಇಂಗ್ಲಿಷ್ ವಿಭಾಗವು ಅದರ ಅನುವಾದ.
+				</p>
 				<p>
 					ಜಾರ್ಜ್ ಲೂಯಿಸ್ ಬೋರ್ಗೆಸ್ ಅವರ ೧೯೪೧ ರ ಕಿರು ಕಥೆ "ದಿ ಲೈಬ್ರರಿ ಆಫ್ ಬ್ಯಾಬೆಲ್" ನಿಂದ ಸ್ಫೂರ್ತಿ ಪಡೆದ ಈ ಯೋಜನೆಯು
 					ಅನಂತ ಮತ್ತು ನಿರ್ಧಾರಿತ ಗ್ರಂಥಾಲಯದ ಪರಿಕಲ್ಪನೆಯನ್ನು ಕನ್ನಡ ಭಾಷೆಗೆ ತರುತ್ತದೆ.
@@ -102,6 +105,9 @@
 			<!-- English Content -->
 			<section class="intro">
 				<h2>Akshara-Mantapa: A Library of Babel for Kannada</h2>
+				<p class="origin-note">
+					Kannada is the original language of this page. Akshara-Mantapa began as a Kannada library, so the Kannada version is its most original expression; this English section is a translation.
+				</p>
 				<p>
 					Inspired by Jorge Luis Borges' 1941 short story "The Library of Babel," Akshara-Mantapa
 					brings the concept of an infinite, deterministic library to the Kannada language.
@@ -252,8 +258,8 @@
 		max-width: 46em;
 		margin: 0 auto;
 		padding: 3em 2em 2em 2em;
-		font-family: 'Georgia', 'Palatino Linotype', 'Book Antiqua', 'Palatino', serif;
-		font-size: 18px;
+		font-family: 'EB Garamond', Garamond, 'Times New Roman', serif;
+		font-size: 20px;
 		line-height: 1.6;
 		color: #000;
 		background: #fff;
@@ -295,7 +301,7 @@
 	}
 
 	.toggle-btn {
-		font-family: 'Noto Sans Kannada', 'Georgia', serif;
+		font-family: 'Noto Sans Kannada', 'EB Garamond', serif;
 		font-size: 0.9em;
 		padding: 0.5em 1.25em;
 		border: 1px solid #ccc;
@@ -312,8 +318,8 @@
 	}
 
 	.toggle-btn.active {
-		background: #1d4ed8;
-		border-color: #1d4ed8;
+		background: #111;
+		border-color: #111;
 		color: #fff;
 	}
 
@@ -341,12 +347,20 @@
 	}
 
 	.kannada-section h2 {
-		color: #1d4ed8;
-		border-bottom-color: #e0e0e0;
+		color: #111;
+		border-bottom-color: #ddd;
 	}
 
 	.kannada-section h3 {
-		color: #1d4ed8;
+		color: #111;
+	}
+
+	.origin-note {
+		padding: 0.8em 1em;
+		border-left: 2px solid #999;
+		background: #f7f7f7;
+		color: #555;
+		font-size: 0.92em;
 	}
 
 	.kannada-section p {
@@ -387,11 +401,11 @@
 		border-left: none;
 		border-top: 1px solid #ccc;
 		border-bottom: 1px solid #ccc;
-		background: #f8fafc;
+		background: #f7f7f7;
 	}
 
 	.basavanna-quote .translation {
-		font-family: 'Georgia', serif;
+		font-family: 'EB Garamond', serif;
 		font-size: 0.85em;
 		color: #666;
 		display: block;
@@ -403,40 +417,40 @@
 	}
 
 	.monkey-theorem {
-		background: #fffbeb;
-		border: 1px solid #fcd34d;
+		background: #fafafa;
+		border: 1px solid #ddd;
 		padding: 1.5em;
 		margin: 2em 0;
 	}
 
 	.monkey-theorem h2 {
-		color: #b45309;
-		border-bottom-color: #fcd34d;
+		color: #111;
+		border-bottom-color: #ddd;
 	}
 
 	.why-section {
-		background: #f0fdf4;
-		border: 1px solid #86efac;
+		background: #fafafa;
+		border: 1px solid #ddd;
 		padding: 1.5em;
 		margin: 2em 0;
 	}
 
 	.why-section h2 {
-		color: #166534;
-		border-bottom-color: #86efac;
+		color: #111;
+		border-bottom-color: #ddd;
 	}
 
 	.why-section h3 {
-		color: #15803d;
+		color: #333;
 	}
 
 	.kannada-section.why-section {
-		background: #f0fdf4;
-		border: 1px solid #86efac;
+		background: #fafafa;
+		border: 1px solid #ddd;
 	}
 
 	.kannada-section.why-section h2 {
-		color: #166534;
+		color: #111;
 	}
 
 	.kannada-section.why-section .basavanna-quote {
@@ -476,14 +490,14 @@
 	.philosophy a,
 	.intro a,
 	.kannada-section.intro a {
-		color: #1d4ed8;
-		border-bottom: 1px solid #93c5fd;
+		color: #111;
+		border-bottom: 1px solid #aaa;
 	}
 
 	.philosophy a:hover,
 	.intro a:hover,
 	.kannada-section.intro a:hover {
-		border-bottom-color: #1d4ed8;
+		border-bottom-color: #111;
 	}
 
 	sup {
@@ -512,13 +526,13 @@
 	}
 
 	.made-by .links a {
-		color: #1d4ed8;
+		color: #111;
 		text-decoration: none;
-		border-bottom: 1px solid #93c5fd;
+		border-bottom: 1px solid #aaa;
 	}
 
 	.made-by .links a:hover {
-		border-bottom-color: #1d4ed8;
+		border-bottom-color: #111;
 	}
 
 	.made-by .separator {

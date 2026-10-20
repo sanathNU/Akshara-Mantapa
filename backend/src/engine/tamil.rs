@@ -94,6 +94,14 @@ mod tests {
     }
 
     #[test]
+    fn tamil_decomposed_vowel_signs_segment_to_canonical_clusters() {
+        let alphabet = GraphemeAlphabet::from_script(&Tamil);
+        assert_eq!(alphabet.segment("கொ"), alphabet.segment("கொ"));
+        assert_eq!(alphabet.segment("கோ"), alphabet.segment("கோ"));
+        assert_eq!(alphabet.segment("கௌ"), alphabet.segment("கௌ"));
+    }
+
+    #[test]
     fn tamil_script_detection() {
         let alphabet = GraphemeAlphabet::from_script(&Tamil);
         assert!(alphabet.contains_script_chars("hello தமிழ் world"));
