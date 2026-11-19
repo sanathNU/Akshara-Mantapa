@@ -1,6 +1,6 @@
 # ಅಕ್ಷರ ಮಂಟಪ
 
-![ಅಕ್ಷರ ಮಂಟಪ ಬ್ಯಾನರ್](frontend/static/main-picture.png)
+![ಅಕ್ಷರ ಮಂಟಪ ಬ್ಯಾನರ್](assets/akshara-mantapa-banner.png)
 
 ಕನ್ನಡಕ್ಕಾಗಿ ಬ್ಯಾಬೆಲ್ ಗ್ರಂಥಾಲಯ.
 
