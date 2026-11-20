@@ -1,38 +1,37 @@
-<script>
+<script lang="ts">
+	import DocPage from '$lib/components/DocPage.svelte';
 	import { base } from '$app/paths';
 
-	let lang = $state('kn'); // 'kn' for Kannada, 'en' for English
+	let lang = $state<'kn' | 'en'>('kn');
+	const kannada = $derived(lang === 'kn');
 </script>
 
-<div class="page">
-	<header>
-		<h1>∞ ಅಕ್ಷರ ಮಂಟಪ | Akshara-Mantapa</h1>
-		<nav class="breadcrumb">
-			<a href="{base}/">← {lang === 'kn' ? 'ಗ್ರಂಥಾಲಯಕ್ಕೆ ಹಿಂತಿರುಗಿ' : 'Back to Library'}</a>
-		</nav>
-		<div class="lang-toggle">
-			<button 
-				class="toggle-btn" 
-				class:active={lang === 'kn'} 
-				onclick={() => lang = 'kn'}
-			>
-				ಕನ್ನಡ
-			</button>
-			<button 
-				class="toggle-btn" 
-				class:active={lang === 'en'} 
-				onclick={() => lang = 'en'}
-			>
-				English
-			</button>
-		</div>
-	</header>
+<svelte:head>
+	<title>{kannada ? 'ಪರಿಚಯ' : 'About'} · Akshara Mantapa</title>
+</svelte:head>
 
-	<article>
+<DocPage
+	label={kannada ? 'ಪರಿಚಯ' : 'About'}
+	labelLang={kannada ? 'kn' : undefined}
+	title={kannada ? 'ಅಕ್ಷರ ಮಂಟಪ' : 'Akshara-Mantapa: A Library of Babel for Kannada'}
+	titleLang={kannada ? 'kn' : undefined}
+	backText={kannada ? 'ಗ್ರಂಥಾಲಯಕ್ಕೆ ಹಿಂತಿರುಗಿ' : 'Back to the library'}
+	madeByText={kannada ? 'ರಚಿಸಿದವರು' : 'Made by'}
+	websiteText={kannada ? 'ವೆಬ್‌ಸೈಟ್' : 'Website'}
+	uiLang={kannada ? 'kn' : undefined}
+>
+	{#snippet controls()}
+		<nav class="switch" aria-label="Language">
+			<button type="button" class:on={kannada} lang="kn" aria-pressed={kannada} onclick={() => (lang = 'kn')}>ಕನ್ನಡ</button>
+			<span class="sep" aria-hidden="true">·</span>
+			<button type="button" class:on={!kannada} aria-pressed={!kannada} onclick={() => (lang = 'en')}>English</button>
+		</nav>
+	{/snippet}
+
+	<article {lang}>
 		{#if lang === 'kn'}
 			<!-- Kannada Content -->
 			<section class="intro kannada-section">
-				<h2>ಅಕ್ಷರ ಮಂಟಪ</h2>
 				<p class="origin-note">
 					ಈ ಪುಟದ ಮೂಲ ಭಾಷೆ ಕನ್ನಡ. ಅಕ್ಷರ ಮಂಟಪ ಕನ್ನಡದಲ್ಲೇ ಆರಂಭವಾಯಿತು; ಆದ್ದರಿಂದ ಕನ್ನಡ ಆವೃತ್ತಿಯೇ ಇದರ ಮೂಲರೂಪ. ಇಂಗ್ಲಿಷ್ ವಿಭಾಗವು ಅದರ ಅನುವಾದ.
 				</p>
@@ -41,12 +40,12 @@
 					ಅನಂತ ಮತ್ತು ನಿರ್ಧಾರಿತ ಗ್ರಂಥಾಲಯದ ಪರಿಕಲ್ಪನೆಯನ್ನು ಕನ್ನಡ ಭಾಷೆಗೆ ತರುತ್ತದೆ.
 				</p>
 				<p>
-					ಈ ಗ್ರಂಥಾಲಯವು ೪೧೦ ಅಕ್ಷರಗುಚ್ಛಗಳ ಪ್ರತಿಯೊಂದು ಸಂಭವನೀಯ ಕನ್ನಡ ಪಠ್ಯವನ್ನು ಒಳಗೊಂಡಿದೆ.
+					ಈ ಗ್ರಂಥಾಲಯವು ೪೦೦ ಅಕ್ಷರಗುಚ್ಛಗಳ ಪ್ರತಿಯೊಂದು ಸಂಭವನೀಯ ಕನ್ನಡ ಪಠ್ಯವನ್ನು ಒಳಗೊಂಡಿದೆ.
 					ಏಕೈಕ, ಸುಂದರವಾದ ದ್ವಿಮುಖ ಮ್ಯಾಪಿಂಗ್ ಮೂಲಕ, ಪ್ರತಿಯೊಂದು ಪಠ್ಯವು ನಿಖರವಾಗಿ ಒಂದು ವಿಳಾಸವನ್ನು ಹೊಂದಿದೆ.
 					ಯಾವುದೇ ಕನ್ನಡ ಪಠ್ಯಕ್ಕಾಗಿ ಹುಡುಕಿ, ಮತ್ತು ಗ್ರಂಥಾಲಯವು ಅದರ ನಿಖರವಾದ ಸ್ಥಳವನ್ನು ತೋರಿಸುತ್ತದೆ.
 				</p>
 				<p>
-					೫೭,೩೨೪ ಅಕ್ಷರ ಗುಚ್ಛಗಳೊಂದಿಗೆ, ಈ ಗ್ರಂಥಾಲಯವು ೫೭,೩೨೪<sup>೪೧೦</sup> ≈ ೧೦<sup>೧,೯೪೭</sup> ಸಂಭವನೀಯ ಪುಟಗಳನ್ನು ಒಳಗೊಂಡಿದೆ.
+					೫೭,೩೨೪ ಅಕ್ಷರ ಗುಚ್ಛಗಳೊಂದಿಗೆ, ಈ ಗ್ರಂಥಾಲಯವು ೫೭,೩೨೪<sup>೪೦೦</sup> ≈ ೧೦<sup>೧,೯೦೩</sup> ಸಂಭವನೀಯ ಪುಟಗಳನ್ನು ಒಳಗೊಂಡಿದೆ.
 					ಈ ಸಂಖ್ಯೆಯು <a href="https://en.wikipedia.org/wiki/Graham%27s_number" target="_blank" rel="noopener">ಗ್ರಾಹಮ್ ಸಂಖ್ಯೆ</a>ಯಂತಹ ರಚನೆಗಳಿಗಿಂತ ಚಿಕ್ಕದಾಗಿದ್ದರೂ, ಅಗ್ರಾಹ್ಯವಾಗಿ ವಿಶಾಲವಾಗಿದೆ.
 					ಆದರೂ ಪ್ರತಿಯೊಂದು ಪುಟವೂ ತಕ್ಷಣವೇ ಪ್ರವೇಶಿಸಬಹುದು ಮತ್ತು ಹುಡುಕಬಹುದು.
 				</p>
@@ -61,7 +60,7 @@
 				</blockquote>
 				<p>
 					ಬೋರ್ಗೆಸ್ ೪೧೦ ಪುಟಗಳ ಪ್ರತಿಯೊಂದು ಸಂಭವನೀಯ ಪುಸ್ತಕವನ್ನು ಒಳಗೊಂಡ ಗ್ರಂಥಾಲಯವನ್ನು ಕಲ್ಪಿಸಿಕೊಂಡರು.
-					ಅಕ್ಷರ ಮಂಟಪವು ೪೧೦-ಗುಚ್ಛ ಪುಟಗಳೊಂದಿಗೆ ಈ ರಚನೆಯನ್ನು ನಿಷ್ಠೆಯಿಂದ ಸಂರಕ್ಷಿಸುತ್ತದೆ, ಆದರೆ ಸೀಮಿತ
+					ಅಕ್ಷರ ಮಂಟಪವು ೪೦೦-ಗುಚ್ಛ ಪುಟಗಳು ಮತ್ತು ೪೧೦ ಪುಟಗಳ ಪುಸ್ತಕಗಳೊಂದಿಗೆ ಈ ರಚನೆಯನ್ನು ನಿಷ್ಠೆಯಿಂದ ಸಂರಕ್ಷಿಸುತ್ತದೆ, ಆದರೆ ಸೀಮಿತ
 					ಲ್ಯಾಟಿನ್ ವರ್ಣಮಾಲೆಯ ಬದಲು ಕನ್ನಡದ ೫೭,೩೨೪ ಅಕ್ಷರ ಗುಚ್ಛಗಳನ್ನು ಬಳಸುತ್ತದೆ.
 				</p>
 			</section>
@@ -104,7 +103,6 @@
 		{:else}
 			<!-- English Content -->
 			<section class="intro">
-				<h2>Akshara-Mantapa: A Library of Babel for Kannada</h2>
 				<p class="origin-note">
 					Kannada is the original language of this page. Akshara-Mantapa began as a Kannada library, so the Kannada version is its most original expression; this English section is a translation.
 				</p>
@@ -113,14 +111,14 @@
 					brings the concept of an infinite, deterministic library to the Kannada language.
 				</p>
 				<p>
-					The library contains every possible combination of 410-cluster Kannada text. Through an
+					The library contains every possible combination of 400-cluster Kannada text. Through an
 					algorithmic bijective mapping, each text has exactly one address, and each address 
 					generates exactly one page. The system is fully invertible: search for any text and 
 					find its unique location; browse any address and deterministically generate its content.
 				</p>
 				<p>
 					With 57,324 grapheme clusters (including consonants, vowels, matras, modifiers, and conjuncts),
-					the library contains 57,324<sup>410</sup> ≈ 10<sup>1,947</sup> possible pages. This number, 
+					the library contains 57,324<sup>400</sup> ≈ 10<sup>1,903</sup> possible pages. This number,
 					while still dwarfed by constructs like <a href="https://en.wikipedia.org/wiki/Graham%27s_number" target="_blank" rel="noopener">Graham's number</a>, is incomprehensibly vast. Yet every 
 					page is instantly accessible and searchable.
 				</p>
@@ -140,7 +138,7 @@
 					brilliantly realized this vision for English with 3,200 characters per page drawn from a 29-character alphabet.
 				</p>
 				<p>
-					Akshara-Mantapa faithfully preserves this structure with 410-cluster pages, but uses 
+					Akshara-Mantapa keeps the 410-page books, with 400 clusters (16 lines of 25) on every page, but uses
 					Kannada's 57,324 grapheme clusters instead of the limited Latin alphabet. Each cluster 
 					represents roughly 10<sup>3</sup> times more possibilities than a single Latin character, 
 					creating a space incomparably vaster yet equally navigable.
@@ -166,7 +164,7 @@
 					The monkey has already typed everything. We just need to know where to look.
 				</p>
 				<blockquote class="basavanna-quote">
-					ಅರಿವೇ ಗುರು<br/>
+					<span lang="kn">ಅರಿವೇ ಗುರು</span><br/>
 					<span class="translation">(Awareness itself is the teacher)</span>
 					<footer>— Basavanna</footer>
 				</blockquote>
@@ -180,7 +178,7 @@
 			<section class="why-section">
 				<h2>Why Build This?</h2>
 				
-				<h3>ಕನ್ನಡ, My Mother Tongue</h3>
+				<h3><span lang="kn">ಕನ್ನಡ</span>, My Mother Tongue</h3>
 				<p>
 					Kannada is my mother tongue, and I wanted a way to think about infinity in that language. 
 					There's something profound about knowing that every possible expression in your native 
@@ -237,371 +235,4 @@
 			</section>
 		{/if}
 	</article>
-
-	<footer>
-		<p class="return-link">
-			<a href="{base}/">{lang === 'kn' ? 'ಗ್ರಂಥಾಲಯಕ್ಕೆ ಹಿಂತಿರುಗಿ' : 'Return to the Library'}</a>
-		</p>
-		<div class="made-by">
-			<p>{lang === 'kn' ? 'ರಚಿಸಿದವರು' : 'Made by'} <strong>Sanath</strong></p>
-			<p class="links">
-				<a href="https://github.com/sanathNU" target="_blank" rel="noopener">GitHub</a>
-				<span class="separator">•</span>
-				<a href="https://sanathnu.github.io/TechnicaInsania/" target="_blank" rel="noopener">{lang === 'kn' ? 'ವೆಬ್‌ಸೈಟ್' : 'Website'}</a>
-			</p>
-		</div>
-	</footer>
-</div>
-
-<style>
-	.page {
-		max-width: 46em;
-		margin: 0 auto;
-		padding: 3em 2em 2em 2em;
-		font-family: 'EB Garamond', Garamond, 'Times New Roman', serif;
-		font-size: 20px;
-		line-height: 1.6;
-		color: #000;
-		background: #fff;
-	}
-
-	header {
-		margin-bottom: 2em;
-		border-bottom: 1px solid #ccc;
-		padding-bottom: 1em;
-	}
-
-	h1 {
-		font-size: 2em;
-		font-weight: normal;
-		margin: 0 0 0.5em 0;
-		line-height: 1.2;
-	}
-
-	.breadcrumb {
-		font-size: 0.9em;
-		margin-bottom: 1em;
-	}
-
-	.breadcrumb a {
-		color: #666;
-		text-decoration: none;
-		border-bottom: 1px dotted #999;
-	}
-
-	.breadcrumb a:hover {
-		color: #000;
-		border-bottom-style: solid;
-	}
-
-	.lang-toggle {
-		display: flex;
-		gap: 0.5em;
-		margin-top: 1em;
-	}
-
-	.toggle-btn {
-		font-family: 'Noto Sans Kannada', 'EB Garamond', serif;
-		font-size: 0.9em;
-		padding: 0.5em 1.25em;
-		border: 1px solid #ccc;
-		background: #fff;
-		color: #666;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		border-radius: 6px;
-	}
-
-	.toggle-btn:hover {
-		border-color: #999;
-		color: #333;
-	}
-
-	.toggle-btn.active {
-		background: #111;
-		border-color: #111;
-		color: #fff;
-	}
-
-	h2 {
-		font-size: 1.3em;
-		font-weight: normal;
-		margin: 1.5em 0 0.75em 0;
-		border-bottom: 1px solid #eee;
-		padding-bottom: 0.25em;
-	}
-
-	h3 {
-		font-size: 1.1em;
-		font-weight: 600;
-		margin: 1.25em 0 0.5em 0;
-		color: #333;
-	}
-
-	section {
-		margin: 2em 0;
-	}
-
-	.kannada-section {
-		font-family: 'Noto Sans Kannada', serif;
-	}
-
-	.kannada-section h2 {
-		color: #111;
-		border-bottom-color: #ddd;
-	}
-
-	.kannada-section h3 {
-		color: #111;
-	}
-
-	.origin-note {
-		padding: 0.8em 1em;
-		border-left: 2px solid #999;
-		background: #f7f7f7;
-		color: #555;
-		font-size: 0.92em;
-	}
-
-	.kannada-section p {
-		font-size: 1.05em;
-		line-height: 1.8;
-	}
-
-	.intro p,
-	.philosophy p,
-	.monkey-theorem p,
-	.why-section p {
-		text-align: justify;
-		margin: 0 0 1em 0;
-	}
-
-	blockquote {
-		margin: 1.5em 0;
-		padding: 1em 1.5em;
-		background: #fafafa;
-		border-left: 3px solid #ccc;
-		font-style: italic;
-	}
-
-	blockquote footer {
-		margin-top: 0.5em;
-		font-style: normal;
-		font-size: 0.9em;
-		color: #666;
-		border-top: none;
-		padding-top: 0;
-		text-align: left;
-	}
-
-	.basavanna-quote {
-		font-family: 'Noto Sans Kannada', serif;
-		font-size: 1.15em;
-		text-align: center;
-		border-left: none;
-		border-top: 1px solid #ccc;
-		border-bottom: 1px solid #ccc;
-		background: #f7f7f7;
-	}
-
-	.basavanna-quote .translation {
-		font-family: 'EB Garamond', serif;
-		font-size: 0.85em;
-		color: #666;
-		display: block;
-		margin-top: 0.25em;
-	}
-
-	.basavanna-quote footer {
-		text-align: center;
-	}
-
-	.monkey-theorem {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		padding: 1.5em;
-		margin: 2em 0;
-	}
-
-	.monkey-theorem h2 {
-		color: #111;
-		border-bottom-color: #ddd;
-	}
-
-	.why-section {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		padding: 1.5em;
-		margin: 2em 0;
-	}
-
-	.why-section h2 {
-		color: #111;
-		border-bottom-color: #ddd;
-	}
-
-	.why-section h3 {
-		color: #333;
-	}
-
-	.kannada-section.why-section {
-		background: #fafafa;
-		border: 1px solid #ddd;
-	}
-
-	.kannada-section.why-section h2 {
-		color: #111;
-	}
-
-	.kannada-section.why-section .basavanna-quote {
-		background: #fff;
-		border-left: none;
-		font-style: normal;
-	}
-
-	.links ul {
-		list-style: none;
-		padding: 0;
-	}
-
-	.links li {
-		margin: 0.75em 0;
-		padding-left: 1.5em;
-		position: relative;
-	}
-
-	.links li:before {
-		content: '→';
-		position: absolute;
-		left: 0;
-		color: #999;
-	}
-
-	.links a {
-		color: #000;
-		text-decoration: none;
-		border-bottom: 1px solid #ccc;
-	}
-
-	.links a:hover {
-		border-bottom-color: #000;
-	}
-
-	.philosophy a,
-	.intro a,
-	.kannada-section.intro a {
-		color: #111;
-		border-bottom: 1px solid #aaa;
-	}
-
-	.philosophy a:hover,
-	.intro a:hover,
-	.kannada-section.intro a:hover {
-		border-bottom-color: #111;
-	}
-
-	sup {
-		font-size: 0.7em;
-	}
-
-	footer {
-		border-top: 1px solid #ccc;
-		padding-top: 1.5em;
-		margin-top: 3em;
-		font-size: 0.9em;
-		color: #666;
-		text-align: center;
-	}
-
-	.made-by {
-		margin-top: 1em;
-	}
-
-	.made-by p {
-		margin: 0.25em 0;
-	}
-
-	.made-by strong {
-		color: #333;
-	}
-
-	.made-by .links a {
-		color: #111;
-		text-decoration: none;
-		border-bottom: 1px solid #aaa;
-	}
-
-	.made-by .links a:hover {
-		border-bottom-color: #111;
-	}
-
-	.made-by .separator {
-		margin: 0 0.75em;
-		color: #ccc;
-	}
-
-	.return-link a {
-		color: #666;
-		text-decoration: none;
-		border-bottom: 1px dotted #999;
-	}
-
-	.return-link a:hover {
-		border-bottom-style: solid;
-		color: #000;
-	}
-
-	@media (max-width: 768px) {
-		.page {
-			padding: 2em 1em;
-		}
-
-		h1 {
-			font-size: 1.3em;
-			word-wrap: break-word;
-		}
-
-		h2 {
-			font-size: 1.15em;
-		}
-
-		h3 {
-			font-size: 1em;
-		}
-
-		.kannada-section p {
-			font-size: 1em;
-			text-align: left;
-		}
-
-		.intro p,
-		.philosophy p,
-		.monkey-theorem p,
-		.why-section p {
-			text-align: left;
-		}
-
-		.monkey-theorem,
-		.why-section {
-			padding: 1em;
-		}
-
-		blockquote {
-			padding: 0.75em 1em;
-			font-size: 0.95em;
-		}
-
-		.links li {
-			padding-left: 1.25em;
-		}
-
-		.lang-toggle {
-			flex-wrap: wrap;
-		}
-
-		.toggle-btn {
-			flex: 1;
-			min-width: 80px;
-		}
-	}
-</style>
+</DocPage>

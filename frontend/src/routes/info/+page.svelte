@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DocPage from '$lib/components/DocPage.svelte';
 	import { base } from '$app/paths';
 
 	const exampleClusters = [
@@ -11,22 +12,15 @@
 	];
 </script>
 
-<div class="page">
-	<header>
-		<h1>Technical Documentation</h1>
-		<nav class="breadcrumb">
-			<a href="{base}/">← Back to Library</a>
-		</nav>
-	</header>
+<svelte:head>
+	<title>Technical documentation · Akshara Mantapa</title>
+</svelte:head>
 
-	<article>
-		<section class="intro">
-			<p>
-				This page explains the technical approach used in the Kannada Library of Babel and how
-				it differs from the original implementation.
-			</p>
-		</section>
-
+<DocPage
+	label="Info"
+	title="Technical Documentation"
+	subtitle="This page explains the technical approach used in the Kannada Library of Babel and how it differs from the original implementation."
+>
 		<section>
 			<h2>The Original Library of Babel</h2>
 			<p>
@@ -66,15 +60,15 @@
 			<div class="examples">
 				{#each exampleClusters as example}
 					<div class="example-card">
-						<div class="cluster-display">{example.cluster}</div>
+						<div class="cluster-display" lang="kn">{example.cluster}</div>
 						<div class="cluster-desc">{example.description}</div>
 					</div>
 				{/each}
 			</div>
 
 			<p>
-				Notice how a single "character" like <span class="kannada-large">ಕ್ಷಾಂ</span> is actually
-				composed of four Unicode codepoints: consonant (ಕ) + halant (್) + consonant (ಷ) + matra (ಾ) + modifier (ಂ).
+				Notice how a single "character" like <span class="kannada-large" lang="kn">ಕ್ಷಾಂ</span> is actually
+				composed of five Unicode codepoints: consonant (ಕ) + halant (್) + consonant (ಷ) + matra (ಾ) + modifier (ಂ).
 				But visually and linguistically, it's perceived as one unit.
 			</p>
 		</section>
@@ -166,7 +160,8 @@ content_num = (address × I) mod N
 
 Where:
 - N = 57324^400 (modulus, total possible pages)
-- C = coprime multiplier (chosen at startup)
+- C = fixed multiplier: the first 39 digits of π,
+      raised to the next value coprime to N
 - I = C^(-1) mod N (modular inverse)</pre>
 
 				<p>
@@ -181,7 +176,7 @@ Where:
 				<h4>1. Raw Hex Address</h4>
 				<code class="address-example">93cebf0ea1c7096fe3de06fd119f...</code>
 				<p>
-					The raw address is approximately 1,630 hexadecimal characters (~6,520 bits):
+					The raw address is up to about 1,581 hexadecimal characters (~6,323 bits):
 				</p>
 				<ul>
 					<li>Directly encodes the bijective mapping result</li>
@@ -197,7 +192,7 @@ Where:
 					Borges-faithful structure mirroring the physical library:
 				</p>
 				<ul>
-					<li><strong>mandira</strong> (ಮಂದಿರ): Room identifier (~1,610 hex chars)</li>
+					<li><strong>mandira</strong> (ಮಂದಿರ): Room identifier (~1,577 hex chars)</li>
 					<li><strong>gode</strong> (ಗೋಡೆ): Wall number (1-4)</li>
 					<li><strong>patti</strong> (ಪಟ್ಟಿ): Shelf number (1-5)</li>
 					<li><strong>pustaka</strong> (ಪುಸ್ತಕ): Book number (1-32)</li>
@@ -216,9 +211,10 @@ Where:
 			<h3>Search: Text → Address</h3>
 			<pre class="code">
 1. Take search query: "ಕನ್ನಡ"
-2. Segment into clusters: ["ಕ", "ನ್", "ನ", "ಡ"]
+2. Segment into clusters (greedy longest match): ["ಕ", "ನ್ನ", "ಡ"]
 3. Convert each cluster to alphabet index
-4. Pad to 400 clusters with spaces (index 0)
+4. Place them at a random position and fill the rest of the
+   400 clusters at random, so every search lands somewhere new
 5. Convert to base-57,324 number (content_num)
 6. Apply bijection: address = (content_num × C) mod N
 7. Convert to hex and hierarchical formats</pre>
@@ -232,7 +228,7 @@ Where:
 5. Format as 25 clusters per line, 16 lines</pre>
 
 			<p class="note">
-				Both operations are O(n²), where n ≈ 6,500 bits. 
+				Both operations are O(n²), where n ≈ 6,300 bits.
 				Despite the enormous address space, generation is instant, usually under a millisecond.
 			</p>
 		</section>
@@ -240,7 +236,9 @@ Where:
 		<section>
 			<h2>Comparison Summary</h2>
 
+			<div class="table-wrap">
 			<table class="comparison">
+
 				<thead>
 					<tr>
 						<th>Aspect</th>
@@ -267,7 +265,7 @@ Where:
 					<tr>
 						<td>Address Size</td>
 						<td>~500 hex chars</td>
-						<td>~1,630 hex chars</td>
+						<td>~1,581 hex chars</td>
 					</tr>
 					<tr>
 						<td>Address System</td>
@@ -296,6 +294,7 @@ Where:
 					</tr>
 				</tbody>
 			</table>
+			</div>
 		</section>
 
 		<section>
@@ -305,7 +304,7 @@ Where:
 			</p>
 			<ul>
 				<li><strong>Axum</strong> for the async web framework</li>
-				<li><strong>num-bigint</strong> for arbitrary precision arithmetic with ~6,520-bit numbers</li>
+				<li><strong>num-bigint</strong> for arbitrary precision arithmetic with ~6,300-bit numbers</li>
 				<li><strong>num-integer</strong> for integer operations like GCD for computing modular inverse</li>
 				<li><strong>Bijection Engine</strong> using multiplicative inverse modular arithmetic</li>
 				<li><strong>Grapheme Alphabet</strong> with systematic generation of 57,324 Kannada clusters</li>
@@ -339,343 +338,4 @@ Where:
 				</li>
 			</ul>
 		</section>
-	</article>
-
-	<footer>
-		<p>
-			<a href="{base}/">Return to the Library</a>
-		</p>
-		<div class="made-by">
-			<p>Made by <strong>Sanath</strong></p>
-			<p class="made-by-links">
-				<a href="https://github.com/sanathNU" target="_blank" rel="noopener">GitHub</a>
-				<span class="separator">•</span>
-				<a href="https://sanathnu.github.io/TechnicaInsania/" target="_blank" rel="noopener">Website</a>
-			</p>
-		</div>
-	</footer>
-</div>
-
-<style>
-	.page {
-		max-width: 50em;
-		margin: 0 auto;
-		padding: 3em 2em 2em 2em;
-		font-family: 'EB Garamond', Garamond, 'Times New Roman', serif;
-		font-size: 20px;
-		line-height: 1.6;
-		color: #000;
-		background: #fff;
-	}
-
-	header {
-		margin-bottom: 2em;
-		border-bottom: 1px solid #ccc;
-		padding-bottom: 1em;
-	}
-
-	h1 {
-		font-size: 2em;
-		font-weight: normal;
-		margin: 0 0 0.5em 0;
-		line-height: 1.2;
-	}
-
-	.breadcrumb {
-		font-size: 0.9em;
-	}
-
-	.breadcrumb a {
-		color: #666;
-		text-decoration: none;
-		border-bottom: 1px dotted #999;
-	}
-
-	.breadcrumb a:hover {
-		color: #000;
-		border-bottom-style: solid;
-	}
-
-	h2 {
-		font-size: 1.4em;
-		font-weight: normal;
-		margin: 2em 0 0.75em 0;
-		border-bottom: 1px solid #ddd;
-		padding-bottom: 0.25em;
-	}
-
-	h3 {
-		font-size: 1.15em;
-		font-weight: 600;
-		margin: 1.5em 0 0.5em 0;
-	}
-
-	h4 {
-		font-size: 1.05em;
-		font-weight: 600;
-		margin: 1em 0 0.5em 0;
-	}
-
-	section {
-		margin: 2em 0;
-	}
-
-	p {
-		margin: 0 0 1em 0;
-		text-align: justify;
-	}
-
-	a {
-		color: #0066cc;
-		text-decoration: none;
-		border-bottom: 1px solid #ccc;
-	}
-
-	a:hover {
-		border-bottom-color: #0066cc;
-	}
-
-	ul {
-		margin: 0.5em 0 1em 1.5em;
-		padding: 0;
-	}
-
-	li {
-		margin: 0.5em 0;
-	}
-
-	.kannada-large {
-		font-family: 'Noto Sans Kannada', serif;
-		font-size: 1.3em;
-		font-weight: 600;
-		color: #1d4ed8;
-	}
-
-	.examples {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: 1em;
-		margin: 1.5em 0;
-	}
-
-	.example-card {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		padding: 1em;
-		text-align: center;
-	}
-
-	.cluster-display {
-		font-family: 'Noto Sans Kannada', serif;
-		font-size: 2.5em;
-		font-weight: 600;
-		color: #1d4ed8;
-		margin-bottom: 0.5em;
-	}
-
-	.cluster-desc {
-		font-size: 0.85em;
-		color: #666;
-		font-family: 'Courier New', monospace;
-	}
-
-	.tech-list {
-		margin: 1em 0 1em 1.5em;
-		padding: 0;
-	}
-
-	.tech-list li {
-		margin: 1em 0;
-		padding-left: 0.5em;
-	}
-
-	.tech-list strong {
-		font-weight: 600;
-	}
-
-	.code-block {
-		font-family: 'Courier New', monospace;
-		font-size: 0.85em;
-		background: #f5f5f5;
-		padding: 0.5em;
-		margin: 0.5em 0 0 0;
-		border-left: 3px solid #ccc;
-		color: #333;
-	}
-
-	.address-type {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		padding: 1.5em;
-		margin: 1.5em 0;
-	}
-
-	.address-type h4 {
-		margin-top: 0;
-	}
-
-	.address-example {
-		display: block;
-		font-family: 'Courier New', monospace;
-		font-size: 0.9em;
-		background: #fff;
-		padding: 0.75em;
-		border: 1px solid #ccc;
-		margin: 0.5em 0 1em 0;
-		color: #1d4ed8;
-		font-weight: 600;
-	}
-
-	.address-type ul {
-		margin: 0.5em 0 0.5em 1.5em;
-		padding: 0;
-	}
-
-	.address-type li {
-		margin: 0.5em 0;
-	}
-
-	.note {
-		font-size: 0.9em;
-		color: #666;
-		font-style: italic;
-		background: #fff;
-		padding: 0.75em;
-		border-left: 3px solid #999;
-		margin: 1em 0 0 0;
-	}
-
-	code {
-		font-family: 'Courier New', monospace;
-		font-size: 0.9em;
-		background: #f0f0f0;
-		padding: 0.1em 0.3em;
-		border: 1px solid #ddd;
-	}
-
-	pre.code {
-		font-family: 'Courier New', monospace;
-		font-size: 0.85em;
-		background: #f5f5f5;
-		padding: 1em;
-		border: 1px solid #ddd;
-		overflow-x: auto;
-		line-height: 1.5;
-		margin: 1em 0;
-	}
-
-	.comparison {
-		width: 100%;
-		border-collapse: collapse;
-		margin: 1.5em 0;
-		font-size: 0.95em;
-	}
-
-	.comparison th,
-	.comparison td {
-		padding: 0.75em;
-		text-align: left;
-		border: 1px solid #ddd;
-	}
-
-	.comparison thead {
-		background: #f5f5f5;
-		font-weight: 600;
-	}
-
-	.comparison tbody tr:nth-child(even) {
-		background: #fafafa;
-	}
-
-	.comparison sup {
-		font-size: 0.7em;
-	}
-
-	.links ul {
-		list-style: none;
-		padding: 0;
-	}
-
-	.links li {
-		margin: 0.75em 0;
-		padding-left: 1.5em;
-		position: relative;
-	}
-
-	.links li:before {
-		content: '→';
-		position: absolute;
-		left: 0;
-		color: #999;
-	}
-
-	footer {
-		border-top: 1px solid #ccc;
-		padding-top: 1.5em;
-		margin-top: 3em;
-		font-size: 0.9em;
-		color: #666;
-		text-align: center;
-	}
-
-	footer > p a {
-		color: #666;
-		text-decoration: none;
-		border-bottom: 1px dotted #999;
-	}
-
-	footer > p a:hover {
-		border-bottom-style: solid;
-		color: #000;
-	}
-
-	.made-by {
-		margin-top: 1em;
-	}
-
-	.made-by p {
-		margin: 0.25em 0;
-	}
-
-	.made-by strong {
-		color: #333;
-	}
-
-	.made-by-links a {
-		color: #1d4ed8;
-		text-decoration: none;
-		border-bottom: 1px solid #93c5fd;
-	}
-
-	.made-by-links a:hover {
-		border-bottom-color: #1d4ed8;
-	}
-
-	.separator {
-		margin: 0 0.75em;
-		color: #ccc;
-	}
-
-	@media (max-width: 768px) {
-		.page {
-			padding: 2em 1em;
-		}
-
-		h1 {
-			font-size: 1.5em;
-		}
-
-		.examples {
-			grid-template-columns: 1fr;
-		}
-
-		.comparison {
-			font-size: 0.85em;
-		}
-
-		.comparison th,
-		.comparison td {
-			padding: 0.5em;
-		}
-	}
-</style>
+	</DocPage>

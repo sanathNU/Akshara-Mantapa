@@ -1,17 +1,12 @@
-<script>
-	import { base } from '$app/paths';
+<script lang="ts">
+	import DocPage from '$lib/components/DocPage.svelte';
 </script>
 
-<div class="page">
-	<header>
-		<h1>∞ Future Ideas</h1>
-		<p class="subtitle">A hidden corner for brainstorming and planning</p>
-		<nav class="breadcrumb">
-			<a href="{base}/">← Back to Library</a>
-		</nav>
-	</header>
+<svelte:head>
+	<title>Future ideas · Akshara Mantapa</title>
+</svelte:head>
 
-	<article>
+<DocPage label="Ideas" title="Future Ideas" subtitle="A hidden corner for brainstorming and planning">
 		<section class="notice">
 			<p>
 				🔮 This is a hidden page for collecting future implementation ideas. 
@@ -189,134 +184,14 @@
 				a truly immersive experience.
 			</p>
 		</section>
-	</article>
-
-	<footer>
-		<p>
-			<em>"Every idea exists somewhere in the library—including the idea for this page."</em>
-		</p>
-	</footer>
-</div>
+	
+	<p class="closing">“Every idea exists somewhere in the library—including the idea for this page.”</p>
+</DocPage>
 
 <style>
-	.page {
-		max-width: 46em;
-		margin: 0 auto;
-		padding: 3em 2em 2em 2em;
-		font-family: 'EB Garamond', Garamond, 'Times New Roman', serif;
-		font-size: 20px;
-		line-height: 1.6;
-		color: #000;
-		background: #fff;
-	}
-
-	header {
-		margin-bottom: 2em;
-		border-bottom: 1px solid #ccc;
-		padding-bottom: 1em;
-	}
-
-	h1 {
-		font-size: 2em;
-		font-weight: normal;
-		margin: 0 0 0.25em 0;
-		line-height: 1.2;
-	}
-
-	.subtitle {
-		font-size: 1em;
-		margin: 0 0 0.75em 0;
-		color: #666;
-		font-style: italic;
-	}
-
-	.breadcrumb {
-		font-size: 0.9em;
-	}
-
-	.breadcrumb a {
-		color: #666;
-		text-decoration: none;
-		border-bottom: 1px dotted #999;
-	}
-
-	.breadcrumb a:hover {
-		color: #000;
-		border-bottom-style: solid;
-	}
-
-	h2 {
-		font-size: 1.3em;
-		font-weight: normal;
-		margin: 1.5em 0 0.75em 0;
-		border-bottom: 1px solid #eee;
-		padding-bottom: 0.25em;
-	}
-
-	section {
-		margin: 2em 0;
-	}
-
-	.notice {
-		background: #fef3c7;
-		border: 1px solid #f59e0b;
-		padding: 1em 1.5em;
-		border-radius: 4px;
-	}
-
-	.notice p {
-		margin: 0;
-	}
-
-	ul {
-		padding-left: 1.5em;
-	}
-
-	li {
-		margin: 0.75em 0;
-	}
-
-	li strong {
-		color: #1d4ed8;
-	}
-
-	.notes {
-		background: #f8fafc;
-		border: 1px solid #e2e8f0;
-		padding: 1.5em;
-		margin-top: 3em;
-	}
-
-	.notes h2 {
-		margin-top: 0;
-		color: #475569;
-	}
-
-	.notes p {
-		margin: 0 0 1em 0;
-		color: #64748b;
-	}
-
-	.notes p:last-child {
-		margin-bottom: 0;
-	}
-
-	footer {
-		border-top: 1px solid #ccc;
-		padding-top: 1em;
-		margin-top: 3em;
-		font-size: 0.9em;
-		color: #666;
+	.closing {
+		margin-top: 48px;
 		text-align: center;
-	}
-
-	@media (max-width: 768px) {
-		.page {
-			padding: 2em 1em;
-		}
-
-		h1 {
-			font-size: 1.5em;
-		}
+		color: var(--muted);
 	}
 </style>
