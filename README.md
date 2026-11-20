@@ -1,6 +1,6 @@
 # Akshara-Mantapa
 
-![Akshara Mantapa Banner](frontend/static/main-picture.png)
+![Akshara Mantapa: Borges' library seen from above, hexagonal galleries curving away to a horizon and floors receding down every air shaft, with ಅಕ್ಷರ ಮಂಟಪ on the red floor of the central gallery](assets/akshara-mantapa-banner.png)
 
 ಅಕ್ಷರ ಮಂಟಪ. A Kannada-first Library of Babel for Indic scripts.
 
