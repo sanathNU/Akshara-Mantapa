@@ -1,0 +1,195 @@
+/* Shared look: black ink on white, warm paper and terracotta taken from the banner picture,
+   teal for "you are here" marks. Dark mode swaps the tokens; ◐ sets data-theme on <html>. */
+
+:root {
+	color-scheme: light;
+	--bg: #fff;
+	--ink: #231b15;
+	--ink-soft: #43382f;
+	--muted: #7d7166;
+	--rule: rgba(60, 40, 20, 0.13);
+	--rule-strong: rgba(60, 40, 20, 0.45);
+	--frame: #2a2019;
+	--paper: #f8f3eb;
+	--paper-line: #e6dccd;
+	--warm: #a4522a;
+	--mark: #cff3f4; /* multiplied onto --paper: #c9e8e1 */
+	--mark-ink: #231b15;
+	--floor: #efe3cf;
+	--shaft: #f6e6c2;
+	--wall: #c6e6df;
+	--book: #a4522a;
+	--serif: 'EB Garamond', Garamond, 'Times New Roman', serif;
+	--indic: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', sans-serif;
+	--mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--bg: #14110e;
+	--ink: #ece4da;
+	--ink-soft: #cbc1b6;
+	--muted: #968a7e;
+	--rule: rgba(255, 240, 225, 0.12);
+	--rule-strong: rgba(255, 240, 225, 0.4);
+	--frame: #d6ccc0;
+	--paper: #1e1915;
+	--paper-line: #3a3129;
+	--warm: #dc9663;
+	--mark: #134d46; /* screened onto --paper: #2f5e55 */
+	--mark-ink: #f3eee8;
+	--floor: #2c251e;
+	--shaft: #3b3122;
+	--wall: #2f5e55;
+	--book: #dc9663;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	background: var(--bg);
+}
+
+body {
+	margin: 0;
+	color: var(--ink);
+	font: 20px/1.6 var(--serif);
+	font-variant-numeric: oldstyle-nums;
+}
+
+[lang|='kn'],
+[lang|='te'],
+[lang|='ta'] {
+	font-family: var(--indic);
+}
+
+sup {
+	font-size: 0.62em;
+	line-height: 0;
+	vertical-align: 0.7em;
+}
+
+/* No italics anywhere: emphasis is set in a heavier weight instead. */
+em,
+i,
+cite,
+blockquote {
+	font-style: normal;
+}
+
+em {
+	font-weight: 600;
+}
+
+a {
+	color: inherit;
+	text-decoration: underline 1px var(--rule-strong);
+	text-underline-offset: 0.18em;
+}
+
+a:hover {
+	text-decoration-color: currentColor;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+}
+
+:focus-visible {
+	outline: 2px solid var(--warm);
+	outline-offset: 2px;
+}
+
+.sc {
+	font-variant-caps: all-small-caps;
+	letter-spacing: 0.1em;
+}
+
+/* Commands in square brackets, as plain text: [random page] [copy link]. */
+.br {
+	background: none;
+	border: 0;
+	padding: 0;
+	color: inherit;
+	text-decoration: none;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.br::before {
+	content: '[';
+}
+
+.br::after {
+	content: ']';
+}
+
+.br:hover:not(:disabled) {
+	color: var(--warm);
+}
+
+.br:disabled {
+	color: var(--muted);
+	cursor: default;
+}
+
+/* A button that reads as an underlined link inside a sentence. */
+.link {
+	background: none;
+	border: 0;
+	padding: 0;
+	text-decoration: underline 1px var(--rule-strong);
+	text-underline-offset: 0.18em;
+	cursor: pointer;
+}
+
+.link:hover {
+	text-decoration-color: currentColor;
+}
+
+.sep {
+	color: var(--muted);
+	margin: 0 0.5em;
+}
+
+@media (max-width: 720px) {
+	body {
+		font-size: 18px;
+	}
+}
+
+/* A row of text choices where the current one is underlined: ಕನ್ನಡ · తెలుగు · தமிழ். */
+.switch {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+}
+
+.switch button {
+	background: none;
+	border: 0;
+	padding: 0;
+	color: var(--muted);
+	text-decoration: underline 1px transparent;
+	text-underline-offset: 0.35em;
+	cursor: pointer;
+}
+
+.switch button.on {
+	color: var(--ink);
+	text-decoration-color: currentColor;
+}
+
+.switch button:hover:not(:disabled) {
+	color: var(--ink);
+}
+
+.switch button:disabled {
+	cursor: default;
+}
