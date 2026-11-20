@@ -4,6 +4,17 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" type="image/png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Akshara Mantapa · ಅಕ್ಷರ ಮಂಟಪ</title>
+		<meta name="description" content="A Library of Babel for Kannada, Telugu and Tamil. Every possible page of 400 letters exists at exactly one address. Browse at random or search for any text." />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="Akshara Mantapa · ಅಕ್ಷರ ಮಂಟಪ" />
+		<meta property="og:description" content="A Library of Babel for Kannada, Telugu and Tamil. Every possible page of 400 letters exists at exactly one address." />
+		<script>
+			// Apply a saved dark-mode choice before the first paint.
+			try {
+				if (localStorage.getItem('akshara.theme') === 'dark') document.documentElement.dataset.theme = 'dark';
+			} catch (e) {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

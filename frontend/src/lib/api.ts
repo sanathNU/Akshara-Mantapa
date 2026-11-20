@@ -1,3 +1,5 @@
+import { createWasmLibrary, type WasmLibraryClass, type WasmLibraryInstance } from './wasm-engine';
+
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:3000/api';
 
 // Detect if we're in production (GitHub Pages) or development (local)
@@ -8,6 +10,10 @@ export const DEFAULT_SCRIPT_CODE: ScriptCode = 'kannada';
 export const SCRIPT_CONFIG = {
 	kannada: {
 		code: 'kannada',
+		name: 'Kannada',
+		/** Clusters in the alphabet; the library holds alphabetSize^400 pages. */
+		alphabetSize: 57_324,
+		lang: 'kn',
 		nativeName: 'ಕನ್ನಡ',
 		title: 'ಅಕ್ಷರ ಮಂಟಪ',
 		productName: 'Akshara Mantapa',
@@ -25,6 +31,10 @@ export const SCRIPT_CONFIG = {
 	},
 	telugu: {
 		code: 'telugu',
+		name: 'Telugu',
+		/** Clusters in the alphabet; the library holds alphabetSize^400 pages. */
+		alphabetSize: 57_324,
+		lang: 'te',
 		nativeName: 'తెలుగు',
 		title: 'అక్షర మంటపం',
 		productName: 'Akshara Mantapam',
@@ -42,6 +52,10 @@ export const SCRIPT_CONFIG = {
 	},
 	tamil: {
 		code: 'tamil',
+		name: 'Tamil',
+		/** Clusters in the alphabet; the library holds alphabetSize^400 pages. */
+		alphabetSize: 20_466,
+		lang: 'ta',
 		nativeName: 'தமிழ்',
 		title: 'அட்சர மண்டபம்',
 		productName: 'Atchara Mandapam',
@@ -58,11 +72,6 @@ export const SCRIPT_CONFIG = {
 		historyKey: 'akshara-mantapa-tamil-history'
 	}
 } as const;
-
-export const CURRENT_SCRIPT = SCRIPT_CONFIG[DEFAULT_SCRIPT_CODE];
-
-// Debug: Log which mode we're using
-console.log('API Mode:', USE_WASM ? 'WASM' : 'HTTP API');
 
 export interface HierarchicalDisplay {
 	mandira_hex: string;
@@ -94,36 +103,22 @@ export interface SearchResponse {
 }
 
 // WASM library singletons, one per selected script
-const wasmLibraries: Partial<Record<ScriptCode, any>> = {};
+const wasmLibraries: Partial<Record<ScriptCode, WasmLibraryInstance>> = {};
 
-async function getWasmLibrary(script: ScriptCode = DEFAULT_SCRIPT_CODE) {
-	if (!wasmLibraries[script]) {
-		try {
-			console.log('Loading WASM module from ./wasm/akshara_mantapa.js');
-			const wasm = await import('./wasm/akshara_mantapa.js');
-			console.log('WASM module loaded successfully:', wasm);
+async function getWasmLibrary(script: ScriptCode = DEFAULT_SCRIPT_CODE): Promise<WasmLibraryInstance> {
+	const cached = wasmLibraries[script];
+	if (cached) return cached;
 
-			// Initialize WASM (loads the .wasm binary)
-			console.log('Initializing WASM binary...');
-			await wasm.default();
-			console.log('WASM binary initialized');
-
-			// Create library instance
-			const WasmLibrary = wasm.WasmLibrary as any;
-			if (script === 'telugu' && WasmLibrary.newTelugu) {
-				wasmLibraries[script] = WasmLibrary.newTelugu();
-			} else if (script === 'tamil' && WasmLibrary.newTamil) {
-				wasmLibraries[script] = WasmLibrary.newTamil();
-			} else {
-				wasmLibraries[script] = new WasmLibrary();
-			}
-			console.log('WasmLibrary instance created:', script, wasmLibraries[script]);
-		} catch (error) {
-			console.error('Failed to load WASM module:', error);
-			throw new Error('WASM module not available. Make sure to build and copy WASM files.');
-		}
+	try {
+		const wasm = await import('./wasm/akshara_mantapa.js');
+		await wasm.default();
+		const library = createWasmLibrary(wasm.WasmLibrary as unknown as WasmLibraryClass, script);
+		wasmLibraries[script] = library;
+		return library;
+	} catch (error) {
+		console.error('Failed to load WASM module:', error);
+		throw new Error('WASM module not available. Make sure to build and copy WASM files.');
 	}
-	return wasmLibraries[script];
 }
 
 function withScript(script: ScriptCode, params?: Record<string, string>): URLSearchParams {
@@ -133,9 +128,7 @@ function withScript(script: ScriptCode, params?: Record<string, string>): URLSea
 export async function getRandomPage(script: ScriptCode = DEFAULT_SCRIPT_CODE): Promise<Page> {
 	if (USE_WASM) {
 		const lib = await getWasmLibrary(script);
-		const jsonString = lib.browseRandom(1);
-		console.log('browseRandom returned JSON:', jsonString);
-		const pages = JSON.parse(jsonString);
+		const pages = JSON.parse(lib.browseRandom(1));
 		return pages[0];
 	} else {
 		const params = withScript(script);
@@ -230,22 +223,6 @@ export async function searchText(
 		const params = withScript(script, { q: query });
 		const response = await fetch(`${API_BASE}/search?${params}`);
 		if (!response.ok) throw new Error('Failed to search');
-		return response.json();
-	}
-}
-
-export async function searchTextRandom(
-	query: string,
-	script: ScriptCode = DEFAULT_SCRIPT_CODE
-): Promise<SearchResponse> {
-	if (USE_WASM) {
-		const lib = await getWasmLibrary(script);
-		const jsonString = lib.searchText(query);
-		return JSON.parse(jsonString);
-	} else {
-		const params = withScript(script, { q: query });
-		const response = await fetch(`${API_BASE}/search-random?${params}`);
-		if (!response.ok) throw new Error('Failed to search at random position');
 		return response.json();
 	}
 }

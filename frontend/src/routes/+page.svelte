@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { base } from '$app/paths';
 	import {
 		getRandomPage,
@@ -7,246 +7,354 @@
 		getNextPage,
 		getPreviousPage,
 		searchText,
-		searchTextRandom,
 		DEFAULT_SCRIPT_CODE,
 		SCRIPT_CONFIG,
 		type Page,
-		type LocationResponse,
 		type ScriptCode
 	} from '$lib/api';
+	import {
+		countClusters,
+		describeSearchFailure,
+		findUnsupportedGraphemes,
+		graphemes,
+		groupRuns,
+		handleSubmitKey,
+		layoutPageLines,
+		normalizeQuery,
+		truncateGraphemes
+	} from '$lib/text';
+	import { PAGES_PER_BOOK, libraryExponent, libraryPosition, pagesHoldingExponent } from '$lib/library';
+	import { formatPercent, shortAddress, timeAgo } from '$lib/format';
+	import IntroPicture from '$lib/components/IntroPicture.svelte';
+	import RoomPlan from '$lib/components/RoomPlan.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
-	const availableScripts = Object.values(SCRIPT_CONFIG);
-	let selectedScriptCode: ScriptCode = DEFAULT_SCRIPT_CODE;
-	$: script = SCRIPT_CONFIG[selectedScriptCode];
-
-	let currentPage: Page | null = null;
-	let searchLocation: LocationResponse | null = null;
-	let searchResultPage: Page | null = null;
-	let searchQuery = '';
-	let searchInfo = '';
-	let loading = false;
-	let searching = false;
-	let navigating = false;
-	let error = '';
-	let address = '';
-	let copyMessage = '';
-	let lastSearchedText = '';
-	let isRandomSearch = false;
-	let searchExpanded = false;
-	let isAtFirstPage = false;
-	let pageDeck: Page[] = [];
-	let deckIndex = -1;
-	const MAX_DECK_PAGES = 20;
-	let visibleDeckPages: Page[] = [];
-	$: visibleDeckPages = pageDeck.slice(Math.max(0, deckIndex - 2), Math.max(0, deckIndex));
-
-	// History state
-	let history: Array<{
+	interface HistoryEntry {
 		address: string;
 		displayAddress: string;
 		preview: string;
 		timestamp: number;
-	}> = [];
-	let showHistory = false;
-	const MAX_HISTORY = 50;
+	}
 
-	// Download state
-	let downloadingBook = false;
-	let downloadProgress = 0;
+	interface ShowOptions {
+		highlight?: string;
+		remember?: boolean;
+		scroll?: boolean;
+	}
+
+	type Busy = '' | 'loading' | 'searching' | 'navigating';
+
+	const scripts = Object.values(SCRIPT_CONFIG);
+	const MAX_HISTORY = 50;
+	const HISTORY_PREVIEW = 6;
+	const ROOM_SNIPPET = 9;
+	const backendHint = import.meta.env.DEV ? ' Is the backend running?' : '';
+
+	let scriptCode = $state<ScriptCode>(DEFAULT_SCRIPT_CODE);
+	let currentPage = $state<Page | null>(null);
+	let foundQuery = $state('');
+	let query = $state('');
+	let address = $state('');
+	let showAddress = $state(false);
+	let busy = $state<Busy>('');
+	let error = $state('');
+	let info = $state('');
+	let notice = $state('');
+	let history = $state<HistoryEntry[]>([]);
+	let showAllHistory = $state(false);
+	let roomNameShown = $state(false);
+	let isAtFirstPage = $state(false);
+	let downloadingBook = $state(false);
+	let downloadProgress = $state(0);
+	let now = $state(Date.now());
+	let pageSection: HTMLElement | undefined = $state();
+	let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const script = $derived(SCRIPT_CONFIG[scriptCode]);
+	const where = $derived(currentPage?.hierarchical);
+	const lines = $derived(currentPage ? layoutPageLines(currentPage.formatted_content, foundQuery) : []);
+	const foundLine = $derived(lines.findIndex((line) => line.some((token) => token.marked)) + 1);
+	const libraryPower = $derived(Math.floor(libraryExponent(script.alphabetSize)));
+	const holding = $derived(foundLine ? pagesHoldingExponent(countClusters(foundQuery), script.alphabetSize) : null);
+	const position = $derived(currentPage ? libraryPosition(currentPage.raw_address, script.alphabetSize) : null);
+	const roomName = $derived(where?.mandira_kannada ? layoutPageLines(where.mandira_kannada, '')[0] : []);
+	const shownHistory = $derived(showAllHistory ? history : history.slice(0, HISTORY_PREVIEW));
 
 	onMount(() => {
-		loadHistory();
+		const params = new URLSearchParams(location.search);
+		const linkedScript = params.get('s');
+		if (linkedScript && linkedScript in SCRIPT_CONFIG) scriptCode = linkedScript as ScriptCode;
+		history = readHistory(SCRIPT_CONFIG[scriptCode].historyKey);
+
+		const linked = params.get('p');
+		if (linked) {
+			show(() => getPageByAddress(linked, scriptCode), "Couldn't open the linked page.", 'loading', {
+				highlight: normalizeQuery(params.get('q') ?? ''),
+				scroll: false
+			});
+		} else {
+			show(() => getRandomPage(scriptCode), "Couldn't open a page.", 'loading', { remember: false, scroll: false });
+		}
+
+		const clock = setInterval(() => (now = Date.now()), 60_000);
+		return () => clearInterval(clock);
 	});
 
-	function loadHistory() {
-		const saved = localStorage.getItem(script.historyKey);
-		if (saved) {
-			try {
-				history = JSON.parse(saved);
-			} catch (e) {
-				console.error('Failed to load history:', e);
-				history = [];
-			}
-		} else {
-			history = [];
+	/** Grow the search box with its text instead of scrolling inside it. */
+	function autosize(node: HTMLTextAreaElement, _value: string) {
+		const fit = () => {
+			node.style.height = 'auto';
+			node.style.height = `${node.scrollHeight}px`;
+		};
+		fit();
+		return { update: fit };
+	}
+
+	function readHistory(key: string): HistoryEntry[] {
+		try {
+			const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? '[]');
+			return Array.isArray(parsed) ? (parsed as HistoryEntry[]) : [];
+		} catch {
+			return [];
 		}
 	}
 
-	function switchScript(code: ScriptCode) {
-		if (code === selectedScriptCode || loading || searching || navigating || downloadingBook) return;
-
-		selectedScriptCode = code;
-		currentPage = null;
-		pageDeck = [];
-		deckIndex = -1;
-		searchLocation = null;
-		searchResultPage = null;
-		searchQuery = '';
-		searchInfo = '';
-		error = '';
-		address = '';
-		copyMessage = '';
-		lastSearchedText = '';
-		isRandomSearch = false;
-		searchExpanded = false;
-		isAtFirstPage = false;
-		showHistory = false;
-		loadHistory();
-	}
-
-	function pushDeckPage(page: Page) {
-		const nextDeck = pageDeck.slice(0, deckIndex + 1);
-		nextDeck.push(page);
-		if (nextDeck.length > MAX_DECK_PAGES) nextDeck.shift();
-		pageDeck = nextDeck;
-		deckIndex = pageDeck.length - 1;
-		currentPage = page;
-	}
-
-	function replaceDeckPage(page: Page) {
-		if (deckIndex < 0) {
-			pushDeckPage(page);
-			return;
+	function saveHistory() {
+		try {
+			localStorage.setItem(script.historyKey, JSON.stringify(history));
+		} catch {
+			// Storage can be full or disabled; history then lasts for this visit only.
 		}
-		pageDeck = [...pageDeck.slice(0, deckIndex), page];
-		currentPage = page;
-	}
-
-	function navigateDeck(index: number) {
-		if (index < 0 || index >= pageDeck.length || loading || navigating) return;
-		deckIndex = index;
-		currentPage = pageDeck[index];
-		searchLocation = null;
-		searchResultPage = null;
-		lastSearchedText = '';
-		isAtFirstPage = checkIfFirstPage(pageDeck[index]);
 	}
 
 	function addToHistory(page: Page) {
-		const entry = {
+		const entry: HistoryEntry = {
 			address: page.raw_address,
 			displayAddress: page.hierarchical.display_string,
-			preview: page.content.slice(0, 50),
+			preview: truncateGraphemes(page.content, 50, ''),
 			timestamp: Date.now()
 		};
-		
-		history = history.filter(h => h.address !== page.raw_address);
-		history = [entry, ...history].slice(0, MAX_HISTORY);
-		localStorage.setItem(script.historyKey, JSON.stringify(history));
-	}
-
-	async function loadFromHistory(addr: string) {
-		showHistory = false;
-		try {
-			loading = true;
-			error = '';
-			searchLocation = null;
-			searchResultPage = null;
-			lastSearchedText = '';
-			const page = await getPageByAddress(addr, selectedScriptCode);
-			pushDeckPage(page);
-			addToHistory(page);
-			isAtFirstPage = checkIfFirstPage(page);
-		} catch (e) {
-			error = 'Failed to load page from history.';
-			console.error(e);
-		} finally {
-			loading = false;
-		}
+		history = [entry, ...history.filter((item) => item.address !== page.raw_address)].slice(0, MAX_HISTORY);
+		saveHistory();
 	}
 
 	function clearHistory() {
 		history = [];
-		localStorage.removeItem(script.historyKey);
+		saveHistory();
 	}
 
-	function formatTimestamp(ts: number): string {
-		const date = new Date(ts);
-		return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	function switchScript(code: ScriptCode) {
+		if (code === scriptCode || busy || downloadingBook) return;
+		scriptCode = code;
+		currentPage = null;
+		foundQuery = '';
+		query = '';
+		address = '';
+		error = '';
+		info = '';
+		showAddress = false;
+		showAllHistory = false;
+		history = readHistory(SCRIPT_CONFIG[code].historyKey);
+		show(() => getRandomPage(code), "Couldn't load a random page.", 'loading', { remember: false, scroll: false });
+	}
+
+	/** Scroll `element` into view unless its top is already in the upper half of the screen. */
+	function reveal(element: HTMLElement | undefined) {
+		if (!element) return;
+		const { top } = element.getBoundingClientRect();
+		if (top >= 0 && top <= window.innerHeight * 0.5) return;
+		const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		element.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+	}
+
+	function checkIfFirstPage(page: Page): boolean {
+		const h = page.hierarchical;
+		return h.mandira_hex === '0' && h.gode === 1 && h.patti === 1 && h.pustaka === 1 && h.puta === 1;
+	}
+
+	async function present(page: Page, { highlight = '', remember = true, scroll = true }: ShowOptions) {
+		currentPage = page;
+		foundQuery = highlight;
+		roomNameShown = false;
+		isAtFirstPage = checkIfFirstPage(page);
+		if (remember) addToHistory(page);
+		if (scroll) {
+			await tick();
+			reveal(pageSection);
+		}
+	}
+
+	/** Fetch a page and show it; a null result means there is no earlier page. */
+	async function show(fetchPage: () => Promise<Page | null>, failure: string, mode: Busy, options: ShowOptions = {}) {
+		if (busy) return;
+		busy = mode;
+		error = '';
+		info = '';
+		try {
+			const page = await fetchPage();
+			if (page) await present(page, options);
+			else isAtFirstPage = true;
+		} catch (e) {
+			error = failure + backendHint;
+			console.error(e);
+		} finally {
+			busy = '';
+		}
+	}
+
+	function loadRandomPage() {
+		show(() => getRandomPage(scriptCode), "Couldn't load a random page.", 'loading');
+	}
+
+	function loadPageByAddress() {
+		const target = address.trim();
+		if (!target) {
+			error = 'Enter an address first.';
+			return;
+		}
+		show(
+			() => getPageByAddress(target, scriptCode),
+			"Couldn't load that address. Use a hex address or room.wall.shelf.book.page.",
+			'loading'
+		);
+	}
+
+	function loadNextPage() {
+		const from = currentPage;
+		if (!from) return;
+		show(() => getNextPage(from.raw_address, scriptCode), "Couldn't load the next page.", 'navigating');
+	}
+
+	function loadPreviousPage() {
+		const from = currentPage;
+		if (!from || isAtFirstPage) return;
+		show(() => getPreviousPage(from.raw_address, scriptCode), "Couldn't load the previous page.", 'navigating');
+	}
+
+	function loadFromHistory(entry: HistoryEntry) {
+		show(() => getPageByAddress(entry.address, scriptCode), "Couldn't load that page from history.", 'loading');
+	}
+
+	function performSearch() {
+		runSearch(normalizeQuery(query));
+	}
+
+	/** Place `text` on a page; every run picks a new random spot, so a new address. */
+	async function runSearch(text: string) {
+		if (!text) {
+			error = 'Type something to search for.';
+			return;
+		}
+		if (busy) return;
+		busy = 'searching';
+		error = '';
+		info = '';
+		try {
+			const response = await searchText(text, scriptCode);
+			if (response.found && response.location) {
+				const page = await getPageByAddress(response.location.raw_address, scriptCode);
+				await present(page, { highlight: text });
+			} else {
+				const unsupported = await findUnsupportedGraphemes(
+					text,
+					async (grapheme) => (await searchText(grapheme, scriptCode)).found
+				);
+				info = describeSearchFailure({ scriptName: script.name, unsupported, graphemeCount: graphemes(text).length });
+			}
+		} catch (e) {
+			error = 'Search failed.' + backendHint;
+			console.error(e);
+		} finally {
+			busy = '';
+		}
+	}
+
+	function flash(message: string) {
+		notice = message;
+		clearTimeout(noticeTimer);
+		noticeTimer = setTimeout(() => (notice = ''), 2000);
+	}
+
+	async function copy(text: string, done: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			flash(done);
+		} catch (e) {
+			console.error('Failed to copy:', e);
+			flash("Couldn't copy");
+		}
+	}
+
+	/** A link that opens this page, in this script, with the found text still highlighted. */
+	function pageLink(page: Page): string {
+		const url = new URL(`${base}/`, location.origin);
+		url.searchParams.set('s', scriptCode);
+		url.searchParams.set('p', page.raw_address);
+		if (foundLine) url.searchParams.set('q', foundQuery);
+		return url.href;
+	}
+
+	function saveText(text: string, filename: string) {
+		const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+		const anchor = document.createElement('a');
+		anchor.href = url;
+		anchor.download = filename;
+		anchor.click();
+		URL.revokeObjectURL(url);
 	}
 
 	function downloadPage() {
 		if (!currentPage) return;
-		
-		const content = `Akshara-Mantapa Page
+		const h = currentPage.hierarchical;
+		saveText(
+			`Akshara-Mantapa Page
 ====================
 
 Location:
-- Mandira: ${currentPage.hierarchical.mandira_hex}
-- Gode (Wall): ${currentPage.hierarchical.gode}
-- Patti (Shelf): ${currentPage.hierarchical.patti}
-- Pustaka (Book): ${currentPage.hierarchical.pustaka}
-- Puta (Page): ${currentPage.hierarchical.puta}
+- Mandira: ${h.mandira_hex}
+- Gode (Wall): ${h.gode}
+- Patti (Shelf): ${h.patti}
+- Pustaka (Book): ${h.pustaka}
+- Puta (Page): ${h.puta}
 
-Address: ${currentPage.hierarchical.display_string}
+Address: ${h.display_string}
 
 Content:
 ${currentPage.formatted_content}
-`;
-		
-		const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `akshara-mantapa-page-${currentPage.hierarchical.puta}.txt`;
-		a.click();
-		URL.revokeObjectURL(url);
+`,
+			`akshara-mantapa-page-${h.puta}.txt`
+		);
 	}
 
 	async function downloadBook() {
 		if (!currentPage || downloadingBook) return;
-		
-		const confirmed = confirm(
-			'This will generate and download all 410 pages of this book. This may take a minute. Continue?'
-		);
-		if (!confirmed) return;
-		
+		if (!confirm('This will generate and download all 410 pages of this book. This may take a minute. Continue?')) return;
+
 		downloadingBook = true;
 		downloadProgress = 0;
-		
 		try {
-			const baseAddr = currentPage.hierarchical;
-			let bookContent = `Akshara-Mantapa Book
+			const h = currentPage.hierarchical;
+			let book = `Akshara-Mantapa Book
 ====================
-Mandira: ${baseAddr.mandira_hex}
-Gode (Wall): ${baseAddr.gode}
-Patti (Shelf): ${baseAddr.patti}
-Pustaka (Book): ${baseAddr.pustaka}
+Mandira: ${h.mandira_hex}
+Gode (Wall): ${h.gode}
+Patti (Shelf): ${h.patti}
+Pustaka (Book): ${h.pustaka}
 
 `;
-			
-			const bookStartAddress = `${baseAddr.mandira_hex}.${baseAddr.gode}.${baseAddr.patti}.${baseAddr.pustaka}.1`;
-			let currentAddr = bookStartAddress;
-			
-			for (let i = 1; i <= 410; i++) {
-				downloadProgress = Math.round((i / 410) * 100);
-				
-				const page = await getPageByAddress(currentAddr, selectedScriptCode);
-				
-				bookContent += `
+			let pageAddress = `${h.mandira_hex}.${h.gode}.${h.patti}.${h.pustaka}.1`;
+			for (let i = 1; i <= PAGES_PER_BOOK; i++) {
+				downloadProgress = Math.round((i / PAGES_PER_BOOK) * 100);
+				const page = await getPageByAddress(pageAddress, scriptCode);
+				book += `
 --- Page ${i} ---
 ${page.formatted_content}
 
 `;
-				
-				if (i < 410) {
-					const nextPage = await getNextPage(currentAddr, selectedScriptCode);
-					currentAddr = nextPage.raw_address;
-				}
-				
-				if (i % 10 === 0) {
-					await new Promise(resolve => setTimeout(resolve, 10));
-				}
+				if (i < PAGES_PER_BOOK) pageAddress = (await getNextPage(pageAddress, scriptCode)).raw_address;
+				if (i % 10 === 0) await new Promise((resolve) => setTimeout(resolve, 10));
 			}
-			
-			const blob = new Blob([bookContent], { type: 'text/plain;charset=utf-8' });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `akshara-mantapa-book-${baseAddr.pustaka}.txt`;
-			a.click();
-			URL.revokeObjectURL(url);
-			
+			saveText(book, `akshara-mantapa-book-${h.pustaka}.txt`);
 		} catch (e) {
 			error = 'Failed to download book.';
 			console.error(e);
@@ -255,1281 +363,742 @@ ${page.formatted_content}
 			downloadProgress = 0;
 		}
 	}
-
-	function copyToClipboard(text: string) {
-		navigator.clipboard.writeText(text).then(() => {
-			copyMessage = 'Copied!';
-			setTimeout(() => copyMessage = '', 2000);
-		}).catch(err => {
-			console.error('Failed to copy:', err);
-			copyMessage = 'Failed to copy';
-			setTimeout(() => copyMessage = '', 2000);
-		});
-	}
-
-	function truncateMandira(text: string, maxLines: number = 2): string {
-		const charsPerLine = 50;
-		const maxChars = charsPerLine * maxLines;
-		if (text.length <= maxChars) return text;
-		return text.substring(0, maxChars) + '...';
-	}
-
-	function checkIfFirstPage(page: Page): boolean {
-		const h = page.hierarchical;
-		return h.mandira_hex === '0' && h.gode === 1 && h.patti === 1 && h.pustaka === 1 && h.puta === 1;
-	}
-
-	async function loadRandomPage() {
-		try {
-			loading = true;
-			error = '';
-			searchLocation = null;
-			searchResultPage = null;
-			lastSearchedText = '';
-			const page = await getRandomPage(selectedScriptCode);
-			pushDeckPage(page);
-			addToHistory(page);
-			isAtFirstPage = checkIfFirstPage(page);
-		} catch (e) {
-			error = 'Failed to load random page. Make sure the backend is running.';
-			console.error(e);
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function loadPageByAddress() {
-		if (!address) {
-			error = 'Please enter an address';
-			return;
-		}
-
-		try {
-			loading = true;
-			error = '';
-			searchLocation = null;
-			searchResultPage = null;
-			lastSearchedText = '';
-			const page = await getPageByAddress(address, selectedScriptCode);
-			pushDeckPage(page);
-			addToHistory(page);
-			isAtFirstPage = checkIfFirstPage(page);
-		} catch (e) {
-			error = 'Failed to load page. Check address and backend status.';
-			console.error(e);
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function loadNextPage() {
-		if (!currentPage || navigating) return;
-
-		try {
-			navigating = true;
-			error = '';
-			const page = await getNextPage(currentPage.raw_address, selectedScriptCode);
-			replaceDeckPage(page);
-			addToHistory(page);
-			isAtFirstPage = false;
-		} catch (e) {
-			error = 'Failed to load next page.';
-			console.error(e);
-		} finally {
-			navigating = false;
-		}
-	}
-
-	async function loadPreviousPage() {
-		if (!currentPage || isAtFirstPage || navigating) return;
-
-		try {
-			navigating = true;
-			error = '';
-			const prevPage = await getPreviousPage(currentPage.raw_address, selectedScriptCode);
-			if (prevPage) {
-				replaceDeckPage(prevPage);
-				addToHistory(prevPage);
-				isAtFirstPage = checkIfFirstPage(prevPage);
-			} else {
-				isAtFirstPage = true;
-			}
-		} catch (e) {
-			error = 'Failed to load previous page.';
-			console.error(e);
-		} finally {
-			navigating = false;
-		}
-	}
-
-	async function performSearch() {
-		if (!searchQuery.trim()) {
-			error = 'Please enter search text';
-			return;
-		}
-
-		try {
-			searching = true;
-			error = '';
-			const normalizedQuery = searchQuery.replace(/\r?\n/g, ' ').normalize('NFC');
-			const response = await searchText(normalizedQuery, selectedScriptCode);
-
-			if (response.found && response.location) {
-				const resultPage = await getPageByAddress(response.location.raw_address, selectedScriptCode);
-				currentPage = null;
-				searchLocation = response.location;
-				lastSearchedText = normalizedQuery;
-				isRandomSearch = true;
-				searchInfo = `Found "${response.query}" in random page content`;
-				searchResultPage = resultPage;
-			} else {
-				searchLocation = null;
-				searchResultPage = null;
-				searchInfo = `No exact match found for "${response.query}"`;
-			}
-		} catch (e) {
-			error = 'Search failed. Make sure the backend is running.';
-			console.error(e);
-		} finally {
-			searching = false;
-		}
-	}
-
-	async function performRandomSearch() {
-		if (!searchQuery.trim()) {
-			error = 'Please enter search text';
-			return;
-		}
-
-		try {
-			searching = true;
-			error = '';
-			const normalizedQuery = searchQuery.replace(/\r?\n/g, ' ').normalize('NFC');
-			const response = await searchTextRandom(normalizedQuery, selectedScriptCode);
-
-			if (response.found && response.location) {
-				const resultPage = await getPageByAddress(response.location.raw_address, selectedScriptCode);
-				currentPage = null;
-				searchLocation = response.location;
-				lastSearchedText = normalizedQuery;
-				isRandomSearch = true;
-				searchInfo = `Found "${response.query}" at random position`;
-				searchResultPage = resultPage;
-			} else {
-				searchLocation = null;
-				searchResultPage = null;
-				searchInfo = `Text too long (must be < 410 clusters)`;
-			}
-		} catch (e) {
-			error = 'Random search failed. Make sure the backend is running.';
-			console.error(e);
-		} finally {
-			searching = false;
-		}
-	}
-
-	async function viewSearchResultAsPage() {
-		if (!searchResultPage) return;
-		const page = searchResultPage;
-		pushDeckPage(page);
-		addToHistory(page);
-		searchLocation = null;
-		searchResultPage = null;
-		isAtFirstPage = checkIfFirstPage(page);
-	}
-
-	function getHighlightedContent(content: string, forSearchResult: boolean = false): string {
-		if (!lastSearchedText) return content;
-
-		if (forSearchResult) {
-			const highlightClass = isRandomSearch ? 'search-highlight-yellow' : 'search-highlight-blue';
-			
-			let searchIndex = content.indexOf(lastSearchedText);
-
-			if (searchIndex !== -1) {
-				const before = content.substring(0, searchIndex);
-				const matchText = content.substring(searchIndex, searchIndex + lastSearchedText.length);
-				const after = content.substring(searchIndex + lastSearchedText.length);
-				return before + `<mark class="${highlightClass}">${matchText}</mark>` + after;
-			}
-
-			const removeSpaces = (str: string) => str.replace(/\s/g, '');
-			const searchNoSpaces = removeSpaces(lastSearchedText);
-			const contentNoSpaces = removeSpaces(content);
-			const noSpaceIndex = contentNoSpaces.indexOf(searchNoSpaces);
-
-			if (noSpaceIndex !== -1) {
-				let contentPos = 0;
-				let noSpacePos = 0;
-
-				while (noSpacePos < noSpaceIndex && contentPos < content.length) {
-					if (!/\s/.test(content[contentPos])) noSpacePos++;
-					contentPos++;
-				}
-
-				const startPos = contentPos;
-				let searchCharsFound = 0;
-
-				while (searchCharsFound < searchNoSpaces.length && contentPos < content.length) {
-					if (!/\s/.test(content[contentPos])) searchCharsFound++;
-					contentPos++;
-				}
-
-				const endPos = contentPos;
-				const before = content.substring(0, startPos);
-				const matchText = content.substring(startPos, endPos);
-				const after = content.substring(endPos);
-				return before + `<mark class="${highlightClass}">${matchText}</mark>` + after;
-			}
-		}
-
-		return content;
-	}
 </script>
 
-<div class="page">
-	<header>
-		<h1>{script.title}</h1>
-		<p class="subtitle">{script.productName}: {script.description}</p>
-		<div class="script-switcher" aria-label="Language">
-			{#each availableScripts as option}
-				<button
-					type="button"
-					class:active={option.code === selectedScriptCode}
-					on:click={() => switchScript(option.code)}
-					disabled={loading || searching || navigating || downloadingBook}
-				>
-					<span>{option.nativeName}</span>
-				</button>
-			{/each}
-		</div>
-		<nav class="main-nav">
-			<a href="{base}/about">About</a>
-			<span class="nav-separator">•</span>
-			<a href="{base}/info">Technical Info</a>
-		</nav>
-	</header>
+<svelte:head>
+	<title>{script.title} · {script.productName}</title>
+</svelte:head>
 
-	<div class="banner">
-		<img src="{base}/main-picture.png" alt="{script.productName} - {script.description}" />
+<div class="wrap">
+	<div class="panel">
+		<div class="ptop">
+			<nav class="switch" aria-label="Script">
+				{#each scripts as option, i (option.code)}
+					{#if i > 0}<span class="sep" aria-hidden="true">·</span>{/if}
+					<button
+						type="button"
+						class:on={option.code === scriptCode}
+						lang={option.lang}
+						aria-pressed={option.code === scriptCode}
+						disabled={!!busy || downloadingBook}
+						onclick={() => switchScript(option.code)}>{option.nativeName}</button
+					>
+				{/each}
+			</nav>
+			<ThemeToggle />
+		</div>
+
+		<div class="ptitle">
+			<IntroPicture
+				src="{base}/main-picture.jpg"
+				alt="A robed figure walks toward a lit doorway between towering shelves of books"
+				heading={script.title}
+				subtitle="{script.productName} · {script.description}"
+				lang={script.lang}
+			/>
+			<h1><span class="title" lang={script.lang}>{script.title}</span> <span class="sc">{script.productName}</span></h1>
+		</div>
+
+		<div class="field">
+			<label class="lab sc" for="find">Find</label>
+			<textarea
+				id="find"
+				rows="1"
+				bind:value={query}
+				use:autosize={query}
+				lang={script.lang}
+				placeholder="type or paste {script.name} text"
+				onkeydown={(event) => handleSubmitKey(event, performSearch)}
+			></textarea>
+		</div>
+		{#if showAddress}
+			<form
+				class="field"
+				onsubmit={(event) => {
+					event.preventDefault();
+					loadPageByAddress();
+				}}
+			>
+				<label class="lab sc" for="address">Address</label>
+				<input id="address" bind:value={address} placeholder="hex, or room.wall.shelf.book.page" spellcheck="false" autocomplete="off" />
+				<button class="br" type="submit" disabled={!!busy}>go</button>
+			</form>
+		{/if}
+
+		<div class="cmds">
+			<button class="br" type="button" onclick={performSearch} disabled={!!busy}>
+				{busy === 'searching' ? 'searching…' : 'search'}
+			</button>
+			<button class="br" type="button" onclick={loadRandomPage} disabled={!!busy}>random page</button>
+			<button class="br" type="button" onclick={() => (showAddress = !showAddress)} aria-expanded={showAddress}>
+				go to address
+			</button>
+			<a class="br" href="{base}/about/">about</a>
+			<a class="br" href="{base}/info/">info</a>
+		</div>
+
+		<p class="help">{script.intro}</p>
+		<p class="help">
+			{script.alphabetSize.toLocaleString('en')} aksharas, 400 to a page, {PAGES_PER_BOOK} pages to a book: 10<sup
+				>{libraryPower}</sup
+			> pages in all.
+		</p>
 	</div>
 
-	<article>
-		<section class="intro">
-			<p>{script.intro}</p>
-		</section>
+	{#if error}
+		<p class="status error col" role="alert">{error}</p>
+	{/if}
+	{#if info}
+		<p class="status col" role="status">{info}</p>
+	{/if}
+	{#if busy === 'loading' && !currentPage}
+		<p class="status col" role="status">Opening a page…</p>
+	{/if}
 
-		<section class="controls">
-			<div class="control-row">
-				<button on:click={loadRandomPage} disabled={loading}>
-					{#if loading && !currentPage}Loading...{:else}Random Page{/if}
-				</button>
-			</div>
-
-			<details>
-				<summary>Navigate by address</summary>
-				<div class="control-row">
-					<input type="text" bind:value={address} placeholder="Enter hex address or mandira.gode.patti.pustaka.puta..." />
-					<button on:click={loadPageByAddress} disabled={loading}>Go to Page</button>
-				</div>
-			</details>
-		</section>
-
-		<section class="history-section">
-			<button class="history-toggle" on:click={() => showHistory = !showHistory}>
-				{showHistory ? 'Hide' : 'Show'} History ({history.length})
-			</button>
-			
-			{#if showHistory}
-				<div class="history-panel">
-					{#if history.length === 0}
-						<p class="history-empty">No pages visited yet.</p>
-					{:else}
-						<div class="history-header">
-							<span>Recent Pages</span>
-							<button class="clear-history" on:click={clearHistory}>Clear All</button>
-						</div>
-						<ul class="history-list">
-							{#each history as item}
-								<li>
-									<button class="history-item" on:click={() => loadFromHistory(item.address)}>
-										<span class="history-preview">{item.preview}...</span>
-										<span class="history-time">{formatTimestamp(item.timestamp)}</span>
-									</button>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</div>
-			{/if}
-		</section>
-
-		{#if error}
-			<aside class="error">{error}</aside>
-		{/if}
-
-		{#if loading && !currentPage}
-			<div class="loading">Loading...</div>
-		{/if}
-
-		{#if currentPage}
-			<div class="page-stage">
-				{#each visibleDeckPages as stackedPage, offset (stackedPage.raw_address + offset)}
-					<button
-						class="page-underlay"
-						style={`--stack-y: ${(visibleDeckPages.length - offset) * 13}px; --stack-scale: ${1 - (visibleDeckPages.length - offset) * 0.012}; --stack-z: ${3 - (visibleDeckPages.length - offset)}`}
-						on:click={() => navigateDeck(Math.max(0, deckIndex - visibleDeckPages.length) + offset)}
-						aria-label="Return to page {stackedPage.hierarchical.display_string}"
-					>
-						<span class="underlay-address">{stackedPage.hierarchical.display_string}</span>
-						<span class="underlay-preview">{stackedPage.formatted_content.slice(0, 84)}…</span>
-					</button>
-				{/each}
-				{#key deckIndex}
-				<section class="page-display" class:is-navigating={navigating}>
-					<div class="deck-navigation" aria-label="Random page stack navigation">
-						<button class="deck-arrow" on:click={() => navigateDeck(deckIndex - 1)} disabled={deckIndex <= 0 || navigating} aria-label="Previous discovered page">←</button>
-						<span>Page {deckIndex + 1} <span class="deck-of">of {pageDeck.length}</span></span>
-						<button class="deck-arrow" on:click={() => navigateDeck(deckIndex + 1)} disabled={deckIndex >= pageDeck.length - 1 || navigating} aria-label="Next discovered page">→</button>
-					</div>
-				<div class="page-header">
-					<h2>
-						Page Content
-						{#if navigating}
-							<span class="loading-indicator">⟳</span>
-						{/if}
-					</h2>
-					<div class="page-navigation">
-						<button 
-							class="nav-btn" 
-							on:click={loadPreviousPage} 
-							disabled={navigating || isAtFirstPage}
-							title={isAtFirstPage ? "Already at first page" : "Previous page"}
-						>
-							{#if navigating}⟳{:else}← Prev{/if}
-						</button>
-						<button 
-							class="nav-btn" 
-							on:click={loadNextPage} 
-							disabled={navigating}
-							title="Next page"
-						>
-							{#if navigating}⟳{:else}Next →{/if}
-						</button>
-					</div>
-				</div>
-
-				{#if copyMessage}
-					<aside class="copy-message">{copyMessage}</aside>
+	{#if currentPage && where}
+		{#if foundLine}
+			<p class="found col">
+				<b>Found on line {foundLine}.</b>
+				{#if holding === null}
+					This text is on this page.
+				{:else if holding < 6}
+					{Math.round(10 ** holding).toLocaleString('en')} pages in the library hold this text.
+				{:else}
+					About 10<sup>{Math.floor(holding)}</sup> pages in the library hold this text.
 				{/if}
-
-				<div class="metadata">
-					<strong>Location:</strong>
-					{#if currentPage.hierarchical.mandira_kannada}
-						<div class="mandira-kannada">
-							<div class="mandira-header">
-								<strong>{script.mandiraLabel} (Room):</strong>
-								<button class="copy-btn-inline" on:click={() => copyToClipboard(currentPage?.hierarchical.mandira_kannada || '')}>Copy</button>
-							</div>
-							<div class="mandira-text">{truncateMandira(currentPage.hierarchical.mandira_kannada)}</div>
-						</div>
-					{/if}
-					<div class="address-components">
-						{script.wallLabel} (Wall) {currentPage.hierarchical.gode} •
-						{script.shelfLabel} (Shelf) {currentPage.hierarchical.patti} •
-						{script.bookLabel} (Book) {currentPage.hierarchical.pustaka} •
-						{script.pageLabel} (Page) {currentPage.hierarchical.puta}
-					</div>
-					<div class="address-copy-buttons">
-						<button class="copy-btn" on:click={() => copyToClipboard(currentPage?.raw_address || '')}>Copy Raw Address</button>
-						<button class="copy-btn" on:click={() => copyToClipboard(currentPage?.hierarchical.display_string || '')}>Copy Hierarchical Address</button>
-					</div>
-					<div class="download-buttons">
-						<button class="download-btn" on:click={downloadPage} disabled={downloadingBook}>
-							Download Page
-						</button>
-						<button class="download-btn" on:click={downloadBook} disabled={downloadingBook}>
-							{#if downloadingBook}
-								Downloading... {downloadProgress}%
-							{:else}
-								Download Book (410 pages)
-							{/if}
-						</button>
-					</div>
-				</div>
-
-				<div class="content">
-					<pre>{@html getHighlightedContent(currentPage.formatted_content)}</pre>
-				</div>
-
-				<div class="page-navigation-bottom">
-					<button 
-						class="nav-btn" 
-						on:click={loadPreviousPage} 
-						disabled={navigating || isAtFirstPage}
-					>
-						{#if navigating}⟳ Loading...{:else}← Previous Page{/if}
-					</button>
-					<button 
-						class="nav-btn" 
-						on:click={loadNextPage} 
-						disabled={navigating}
-					>
-						{#if navigating}⟳ Loading...{:else}Next Page →{/if}
-					</button>
-				</div>
-			</section>
-				{/key}
-			</div>
-		{/if}
-
-		<section class="search-section">
-			<h2>{script.searchHeading}</h2>
-			<div class="control-row">
-				<textarea
-					class="kannada-search-input"
-					class:expanded={searchExpanded || searchQuery.length > 0}
-					bind:value={searchQuery}
-					placeholder={script.searchPlaceholder}
-					on:focus={() => searchExpanded = true}
-					on:blur={() => { if (!searchQuery) searchExpanded = false }}
-					on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && performSearch()}
-				></textarea>
-				<button on:click={performSearch} disabled={loading || searching}>
-					{#if searching}Searching...{:else}Search{/if}
+				<button type="button" class="link" onclick={() => runSearch(foundQuery)} disabled={!!busy}>
+					Show me another one
 				</button>
-				<button on:click={performRandomSearch} disabled={loading || searching} title="Find text at a random position within a page">Find Again</button>
-			</div>
-		</section>
-
-		{#if searchInfo}
-			<aside class="search-info-message">{searchInfo}</aside>
-		{/if}
-
-		{#if searchLocation}
-			<section class="results" class:is-searching={searching}>
-				<h2>Search Result</h2>
-				{#if copyMessage}
-					<aside class="copy-message">{copyMessage}</aside>
-				{/if}
-				<div class="result-card">
-					<div class="result-info">
-						<strong>Found at Location:</strong>
-						{#if searchLocation.hierarchical.mandira_kannada}
-							<div class="mandira-kannada-small">
-								<div class="mandira-header">
-									<strong>{script.mandiraLabel}:</strong>
-									<button class="copy-btn-inline" on:click={() => copyToClipboard(searchLocation?.hierarchical.mandira_kannada || '')}>Copy</button>
-								</div>
-								<div class="mandira-text">{truncateMandira(searchLocation.hierarchical.mandira_kannada)}</div>
-							</div>
-						{/if}
-						<div class="address-components-search">
-							{script.wallLabel} (Wall) {searchLocation.hierarchical.gode} •
-							{script.shelfLabel} (Shelf) {searchLocation.hierarchical.patti} •
-							{script.bookLabel} (Book) {searchLocation.hierarchical.pustaka} •
-							{script.pageLabel} (Page) {searchLocation.hierarchical.puta}
-						</div>
-						<div class="address-copy-buttons">
-							<button class="copy-btn" on:click={() => copyToClipboard(searchLocation?.raw_address || '')}>Copy Raw Address</button>
-							<button class="copy-btn" on:click={() => copyToClipboard(searchLocation?.hierarchical.display_string || '')}>Copy Hierarchical Address</button>
-							<button class="copy-btn browse-btn" on:click={viewSearchResultAsPage}>Browse from here →</button>
-						</div>
-					</div>
-					{#if searchResultPage}
-						<div class="content">
-							<pre>{@html getHighlightedContent(searchResultPage.formatted_content, true)}</pre>
-						</div>
-					{/if}
-				</div>
-			</section>
-		{/if}
-	</article>
-
-	<footer>
-		<p>
-			<a href="https://en.wikipedia.org/wiki/The_Library_of_Babel" target="_blank" rel="noopener">
-				Jorge Luis Borges, 1941
-			</a>
-		</p>
-		<div class="made-by">
-			<p>Made by <strong>Sanath</strong></p>
-			<p class="made-by-links">
-				<a href="https://github.com/sanathNU" target="_blank" rel="noopener">GitHub</a>
-				<span class="separator">•</span>
-				<a href="https://sanathnu.github.io/TechnicaInsania/" target="_blank" rel="noopener">Website</a>
 			</p>
+		{/if}
+
+		<section class="page" class:after-found={foundLine > 0} bind:this={pageSection} aria-label="Page {where.puta}">
+			<div class="main">
+				<div class="sheet" class:dim={busy === 'navigating' || busy === 'searching'}>
+					<div class="loc">
+						<div class="crumb">
+							<span lang={script.lang}>{script.mandiraLabel}</span><sup><a href="#room-note" aria-label="About the room">1</a></sup>
+							<span class="sep" aria-hidden="true">›</span><span lang={script.lang}>{script.wallLabel}</span>
+							{where.gode}
+							<span class="sep" aria-hidden="true">›</span><span lang={script.lang}>{script.shelfLabel}</span>
+							{where.patti}
+							<span class="sep" aria-hidden="true">›</span><span lang={script.lang}>{script.bookLabel}</span>
+							{where.pustaka}
+						</div>
+						<div class="pager">
+							<button
+								type="button"
+								class="arr"
+								onclick={loadPreviousPage}
+								disabled={!!busy || isAtFirstPage}
+								aria-label="Previous page"
+								title={isAtFirstPage ? 'This is the first page' : 'Previous page'}>‹</button
+							>
+							<span><span lang={script.lang}>{script.pageLabel}</span> {where.puta} <span class="of">/ {PAGES_PER_BOOK}</span></span>
+							<button type="button" class="arr" onclick={loadNextPage} disabled={!!busy} aria-label="Next page" title="Next page"
+								>›</button
+							>
+						</div>
+					</div>
+
+					<div class="pg" lang={script.lang}>
+						{#each lines as line, i}
+							<div class="l">
+								<span class="n" aria-hidden="true">{(i + 1) % 5 === 0 ? i + 1 : ''}</span>{#each groupRuns(line) as run}{#if run.marked}<mark
+											>{#each run.tokens as token}{token.text}{#if token.breakAfter}<wbr />{/if}{/each}</mark
+										>{:else}{#each run.tokens as token}{token.text}{#if token.breakAfter}<wbr />{/if}{/each}{/if}{/each}
+							</div>
+						{/each}
+					</div>
+
+					<div class="acts">
+						<button class="br" type="button" onclick={() => copy(pageLink(currentPage!), 'Link copied')}>copy link</button>
+						<button class="br" type="button" onclick={() => copy(where.display_string, 'Address copied')}>copy address</button>
+						<button class="br" type="button" onclick={downloadPage}>download page</button>
+						<button class="br" type="button" onclick={downloadBook} disabled={downloadingBook}>
+							{downloadingBook ? `downloading ${downloadProgress}%` : 'download book'}
+						</button>
+						<span class="notice" role="status">{notice}</span>
+					</div>
+				</div>
+
+				{#if roomNameShown && roomName.length}
+					<div class="room-name">
+						<div class="room-head">
+							<span class="sc">The room’s full name</span>
+							<span class="room-cmds">
+								<button class="br" type="button" onclick={() => copy(where.mandira_kannada ?? '', 'Name copied')}>copy</button>
+								<button class="br" type="button" onclick={() => (roomNameShown = false)}>hide</button>
+							</span>
+						</div>
+						<p lang={script.lang}>
+							{#each roomName as token}{token.text}{#if token.breakAfter}<wbr />{/if}{/each}
+						</p>
+					</div>
+				{/if}
+			</div>
+
+			<aside class="side">
+				<RoomPlan wall={where.gode} shelf={where.patti} book={where.pustaka} />
+				<p class="figcap sc">
+					wall {where.gode}<span class="sep" aria-hidden="true">·</span>shelf {where.patti}<span class="sep" aria-hidden="true"
+						>·</span
+					>book {where.pustaka}
+				</p>
+				{#if roomName.length}
+					<p class="note" id="room-note">
+						<sup>1</sup><span lang={script.lang}>{script.mandiraLabel}</span>, the room. Its full name runs to {roomName.length.toLocaleString(
+							'en'
+						)} aksharas:
+						<span lang={script.lang}
+							>{#each roomName.slice(0, ROOM_SNIPPET) as token}{token.text}<wbr />{/each}…</span
+						>
+						<button type="button" class="link" onclick={() => (roomNameShown = !roomNameShown)}>
+							{roomNameShown ? 'Hide it' : 'Show it'}
+						</button>
+					</p>
+				{/if}
+				<p class="note">
+					As a number the room is <span class="hex">{where.mandira_hex.slice(0, 4)}…{where.mandira_hex.slice(-4)}</span>,
+					{where.mandira_hex.length.toLocaleString('en')} hex digits long.
+				</p>
+				{#if position !== null}
+					<p class="note">
+						{#if position.fraction >= 0.0001}
+							This page sits {formatPercent(position.fraction)} of the way into the library.
+						{:else if position.log10 === -Infinity}
+							This is the library’s very first page.
+						{:else}
+							This page sits only 10<sup>−{Math.round(-position.log10).toLocaleString('en')}</sup> of the way into the library.
+						{/if}
+						A page picked at random is this one with odds of 1 in 10<sup>{libraryPower}</sup>.
+					</p>
+				{/if}
+			</aside>
+		</section>
+	{/if}
+
+	<section class="hist col" aria-label="Pages you’ve opened">
+		<div class="hist-head">
+			<h2>Pages you’ve opened</h2>
+			{#if history.length}
+				<button class="br" type="button" onclick={clearHistory}>clear</button>
+			{/if}
 		</div>
+		{#if history.length === 0}
+			<p class="empty">None yet. Pages you open or find show up here.</p>
+		{:else}
+			{#each shownHistory as entry (entry.address)}
+				<button type="button" class="row" onclick={() => loadFromHistory(entry)} disabled={!!busy}>
+					<span class="addr">{shortAddress(entry.displayAddress)}</span>
+					<span class="snip" lang={script.lang}>{entry.preview}…</span>
+					<span class="t">{timeAgo(entry.timestamp, now)}</span>
+				</button>
+			{/each}
+			{#if history.length > HISTORY_PREVIEW}
+				<button class="br more" type="button" onclick={() => (showAllHistory = !showAllHistory)}>
+					{showAllHistory ? 'show fewer' : `show all ${history.length}`}
+				</button>
+			{/if}
+		{/if}
+	</section>
+
+	<footer class="col">
+		<span>Every page is computed in your browser.</span>
+		<span class="sc">
+			<a href="https://en.wikipedia.org/wiki/The_Library_of_Babel" target="_blank" rel="noopener">Borges, 1941</a><span
+				class="sep"
+				aria-hidden="true">·</span
+			><a href="https://github.com/sanathNU" target="_blank" rel="noopener">GitHub</a><span class="sep" aria-hidden="true">·</span><a
+				href="https://sanathnu.github.io/TechnicaInsania/"
+				target="_blank"
+				rel="noopener">Made by Sanath</a
+			>
+		</span>
 	</footer>
 </div>
 
 <style>
-	:global(*) {
-		box-sizing: border-box;
-	}
-
-	:global(body) {
-		margin: 0;
-		padding: 0;
-		font-family: 'EB Garamond', Garamond, 'Times New Roman', serif;
-		font-size: 20px;
-		line-height: 1.6;
-		color: #000;
-		background: #fff;
-	}
-
-	.page {
-		max-width: 46em;
+	.wrap {
+		max-width: 1218px;
 		margin: 0 auto;
-		padding: 3em 2em 2em 2em;
+		padding: 0 40px;
 	}
 
-	header {
-		margin-bottom: 2em;
-		border-bottom: 1px solid #ccc;
-		padding-bottom: 1em;
+	.col {
+		max-width: 840px;
+	}
+
+	/* Header panel: script switch, title, find box, commands. */
+	.panel {
+		max-width: 600px;
+		margin-top: 28px;
+		border: 1px solid var(--frame);
+		padding: 12px 20px 16px;
+	}
+
+	.ptop {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		font-size: 18px;
+	}
+
+	.ptitle {
+		display: flex;
+		align-items: center;
+		gap: 6px 14px;
+		margin-top: 10px;
 	}
 
 	h1 {
-		font-size: 2em;
-		font-weight: normal;
-		margin: 0 0 0.25em 0;
-		line-height: 1.2;
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 2px 14px;
+		margin: 0;
+		font-size: inherit;
+		font-weight: 400;
+		line-height: 1.3;
 	}
 
-	.subtitle {
-		font-size: 1.1em;
-		margin: 0 0 0.75em 0;
-		color: #666;
-		font-style: italic;
+	h1 .title {
+		font-size: 26px;
+		font-weight: 500;
 	}
 
-	.script-switcher {
-		display: inline-flex;
-		gap: 0;
-		margin: 0.25em 0 0.5em 0;
-		border: 1px solid #aaa;
-		background: #fff;
+	h1 .sc {
+		font-size: 22px;
+		letter-spacing: 0.12em;
 	}
 
-	.script-switcher button {
+	.field {
+		display: flex;
+		align-items: baseline;
+		gap: 14px;
+		margin-top: 10px;
+		padding: 2px 0 6px;
+		border-bottom: 1px solid var(--rule-strong);
+	}
+
+	.field:focus-within {
+		border-bottom-color: var(--ink);
+	}
+
+	.lab {
+		flex: none;
+		font-size: 18px;
+		color: var(--ink-soft);
+	}
+
+	.field textarea,
+	.field input {
+		flex: 1;
+		min-width: 0;
+		padding: 0;
 		border: 0;
-		border-right: 1px solid #aaa;
-		background: #fff;
-		color: #333;
-		padding: 0.35em 0.75em;
-		font: inherit;
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', 'EB Garamond', serif;
-		cursor: pointer;
-		min-width: 5.5em;
-		border-radius: 0;
-		transition: background 0.15s ease, color 0.15s ease;
+		background: none;
+		color: var(--ink);
+		outline: none;
 	}
 
-	.script-switcher button:last-child {
-		border-right: 0;
+	.field textarea {
+		font-size: 21px;
+		line-height: 1.5;
+		resize: none;
+		overflow: hidden;
 	}
 
-	.script-switcher button:hover:not(:disabled),
-	.script-switcher button.active {
-		background: #111;
-		color: #fff;
+	.field textarea::placeholder,
+	.field input::placeholder {
+		color: var(--muted);
+		opacity: 1;
+		font-family: var(--serif);
+		font-size: 21px;
 	}
 
-	.script-switcher button:disabled {
-		cursor: not-allowed;
+	.field input {
+		font: 16px/1.5 var(--mono);
+	}
+
+	.cmds {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 2px 18px;
+		margin-top: 10px;
+		font-size: 20px;
+	}
+
+	.help {
+		margin: 10px 0 0;
+		font-size: 18px;
+		line-height: 1.5;
+		color: var(--ink-soft);
+	}
+
+	.status {
+		margin: 28px 0 0;
+		font-size: 20px;
+		color: var(--ink-soft);
+	}
+
+	.status.error {
+		color: var(--warm);
+	}
+
+	.found {
+		margin: 40px 0 0;
+		font-size: 21px;
+	}
+
+	.found b {
+		font-weight: 600;
+	}
+
+	/* The page: a tinted sheet, with notes and the room plan in the margin. */
+	.page {
+		display: grid;
+		grid-template-columns: minmax(0, 840px) 250px;
+		column-gap: 48px;
+		margin-top: 40px;
+	}
+
+	.page.after-found {
+		margin-top: 12px;
+	}
+
+	.main {
+		min-width: 0;
+	}
+
+	.sheet {
+		padding: 0 18px;
+		border: 1px solid var(--paper-line);
+		background: var(--paper);
+		transition: opacity 0.15s ease;
+	}
+
+	.sheet.dim {
 		opacity: 0.55;
+		pointer-events: none;
 	}
 
-	.main-nav {
-		font-size: 0.9em;
-		margin-top: 0.75em;
+	.loc {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 4px 16px;
+		padding: 10px 0 8px;
+		border-bottom: 1px solid var(--paper-line);
+		font-size: 20px;
 	}
 
-	.main-nav a {
-		color: #333;
+	.crumb [lang],
+	.pager [lang] {
+		font-size: 17px;
+		margin-right: 0.15em;
+	}
+
+	.crumb sup a {
+		color: var(--warm);
 		text-decoration: none;
-		border-bottom: 1px solid #ccc;
-		padding: 0.2em 0;
+		margin-left: 0.1em;
 	}
 
-	.main-nav a:hover {
-		color: #000;
-		border-bottom-color: #000;
+	.pager {
+		display: flex;
+		align-items: baseline;
+		gap: 4px;
+		margin-left: auto;
+		white-space: nowrap;
 	}
 
-	.nav-separator {
-		margin: 0 0.75em;
-		color: #ccc;
+	.of {
+		color: var(--muted);
 	}
 
-	.banner {
-		margin: 1.5em 0 2em 0;
-		text-align: center;
+	.arr {
+		background: none;
+		border: 0;
+		padding: 0 8px;
+		font-size: 26px;
+		line-height: 1;
+		cursor: pointer;
 	}
 
-	.banner img {
-		max-width: 100%;
-		height: auto;
-		border: 1px solid #ddd;
-		border-radius: 12px;
+	.arr:hover:not(:disabled) {
+		color: var(--warm);
 	}
 
-	article {
-		margin-bottom: 2em;
+	.arr:disabled {
+		color: var(--muted);
+		cursor: default;
 	}
 
-	section {
-		margin: 2em 0;
+	/* 16px lets the widest measured 25-cluster Kannada line (46.9em) fit the 768px measure;
+	   Tamil clusters run about twice as wide, so Tamil lines wrap with a hanging indent. */
+	.pg {
+		padding: 14px 0 14px 36px;
+		font-size: 16px;
+		line-height: 1.95;
 	}
 
-	.intro p {
-		margin: 0 0 1em 0;
-		text-align: justify;
+	.l {
+		position: relative;
+		padding-left: 1.2em;
+		text-indent: -1.2em;
+	}
+
+	.n {
+		position: absolute;
+		left: -36px;
+		width: 22px;
+		text-align: right;
+		text-indent: 0;
+		font-family: var(--serif);
+		font-size: 15px;
+		color: var(--muted);
+	}
+
+	/* The highlight is blended under the ink, like a highlighter pen, so it never hides the
+	   subjoined consonants and vowel signs that Kannada letters hang into their neighbours. */
+	mark {
+		background: var(--mark);
+		color: var(--mark-ink);
+		box-shadow: 0 0 0 2px var(--mark);
+		mix-blend-mode: multiply;
+		-webkit-box-decoration-break: clone;
+		box-decoration-break: clone;
+	}
+
+	:global([data-theme='dark']) mark {
+		mix-blend-mode: screen;
+	}
+
+	.acts {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 2px 18px;
+		padding: 8px 0 10px;
+		border-top: 1px solid var(--paper-line);
+		font-size: 19px;
+	}
+
+	.notice {
+		color: var(--warm);
+	}
+
+	.room-name {
+		margin-top: 14px;
+		padding: 10px 16px 12px;
+		border: 1px solid var(--paper-line);
+		background: var(--paper);
+		font-size: 18px;
+	}
+
+	.room-head {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		color: var(--ink-soft);
+	}
+
+	.room-cmds {
+		display: flex;
+		gap: 14px;
+	}
+
+	.room-name p {
+		margin: 6px 0 0;
+		font-size: 15px;
+		line-height: 1.75;
+	}
+
+	.side {
+		padding-top: 64px;
+		font-size: 17px;
+		line-height: 1.5;
+		color: var(--ink-soft);
+	}
+
+	.figcap {
+		margin: 4px 0 22px;
+		font-size: 16px;
+		color: var(--muted);
+	}
+
+	.note {
+		margin: 0 0 16px;
+	}
+
+	.note > sup:first-child {
+		margin-right: 0.2em;
+		color: var(--warm);
+	}
+
+	.hex {
+		font-family: var(--mono);
+		font-size: 0.8em;
+	}
+
+	/* History: an index of opened pages. */
+	.hist {
+		margin-top: 72px;
+	}
+
+	.hist-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		margin-bottom: 6px;
 	}
 
 	h2 {
-		font-size: 1.3em;
-		font-weight: normal;
 		margin: 0;
+		font-size: 24px;
+		font-weight: 600;
 	}
 
-	.controls {
-		background: #fff;
-		border: 1px solid #ddd;
-		padding: 1.5em;
-		margin: 2em 0;
-		border-radius: 6px;
+	.hist-head .br {
+		font-size: 18px;
+		color: var(--ink-soft);
 	}
 
-	.search-section {
-		background: #fff;
-		border: 1px solid #ddd;
-		padding: 1.5em;
-		margin: 2em 0;
-		border-radius: 6px;
-	}
-
-	.search-section h2 {
-		margin-bottom: 1em;
-	}
-
-	.control-row {
-		display: flex;
-		gap: 0.5em;
-		margin-bottom: 1em;
-		align-items: flex-start;
-	}
-
-	.control-row:last-child {
-		margin-bottom: 0;
-	}
-
-	input[type="text"] {
-		font-family: inherit;
-		font-size: 0.9em;
-		padding: 0.4em 0.6em;
-		border: 1px solid #ccc;
-		background: #fff;
-		flex: 1;
-		border-radius: 4px;
-	}
-
-	textarea.kannada-search-input {
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', inherit;
-		font-size: 0.9em;
-		padding: 0.4em 0.6em;
-		border: 1px solid #ccc;
-		background: #fff;
-		flex: 1;
-		height: 2.5em;
-		min-height: 2.5em;
-		resize: vertical;
-		line-height: 1.6;
-		transition: height 0.25s ease;
-		border-radius: 4px;
-	}
-
-	textarea.kannada-search-input:focus,
-	textarea.kannada-search-input.expanded {
-		height: 200px;
-	}
-
-	input:focus,
-	textarea:focus {
-		outline: 2px solid #000;
-		outline-offset: 0;
-	}
-
-	button {
-		font-family: inherit;
-		font-size: 0.9em;
-		padding: 0.4em 1em;
-		border: 1px solid #000;
-		background: #fff;
-		color: #000;
-		cursor: pointer;
-		transition: background 0.15s ease, color 0.15s ease;
-		border-radius: 3px;
-	}
-
-	button:hover:not(:disabled) {
-		background: #000;
-		color: #fff;
-	}
-
-	button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	details {
-		margin-top: 1em;
-		border-top: 1px solid #eee;
-		padding-top: 1em;
-	}
-
-	summary {
-		cursor: pointer;
-		font-size: 0.95em;
-		color: #666;
-		margin-bottom: 1em;
-	}
-
-	summary:hover {
-		color: #000;
-	}
-
-	/* History styles */
-	.history-section {
-		margin: 1em 0;
-	}
-
-	.history-toggle {
-		font-size: 0.85em;
-		padding: 0.4em 0.8em;
-		background: #f5f5f5;
-		border: 1px solid #ccc;
-	}
-
-	.history-panel {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		padding: 1em;
-		margin-top: 0.5em;
-		max-height: 300px;
-		overflow-y: auto;
-	}
-
-	.history-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 0.75em;
-		padding-bottom: 0.5em;
-		border-bottom: 1px solid #eee;
-	}
-
-	.clear-history {
-		font-size: 0.75em;
-		padding: 0.2em 0.5em;
-		color: #666;
-		border-color: #ccc;
-	}
-
-	.history-list {
-		list-style: none;
-		padding: 0;
+	.empty {
 		margin: 0;
+		padding: 8px 0;
+		border-top: 1px solid var(--rule);
+		font-size: 19px;
+		color: var(--muted);
 	}
 
-	.history-item {
+	.row {
+		display: grid;
+		grid-template-columns: 170px minmax(0, 1fr) auto;
+		gap: 20px;
+		align-items: baseline;
 		width: 100%;
+		padding: 8px 0;
+		border: 0;
+		border-top: 1px solid var(--rule);
+		background: none;
+		font-size: 19px;
 		text-align: left;
-		padding: 0.5em;
-		margin: 0.25em 0;
-		background: #fff;
-		border: 1px solid #eee;
 		cursor: pointer;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
 	}
 
-	.history-item:hover {
-		background: #f0f0f0;
-		border-color: #ccc;
+	.row:hover:not(:disabled) .addr {
+		color: var(--warm);
 	}
 
-	.history-preview {
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
-		font-size: 0.9em;
-		color: #333;
-		flex: 1;
+	.row:disabled {
+		cursor: default;
+	}
+
+	.addr {
+		text-decoration: underline 1px var(--rule-strong);
+		text-underline-offset: 0.18em;
+	}
+
+	.snip {
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.history-time {
-		font-size: 0.75em;
-		color: #999;
-		margin-left: 1em;
-	}
-
-	.history-empty {
-		color: #666;
-		font-style: italic;
-		margin: 0;
-	}
-
-	.error {
-		background: #ffe;
-		border-left: 3px solid #cc0;
-		padding: 1em;
-		margin: 1em 0;
-		font-size: 0.95em;
-	}
-
-	.search-info-message {
-		background: #f5f5f5;
-		border-left: 3px solid #777;
-		padding: 1em;
-		margin: 1em 0;
-		font-size: 0.95em;
-		color: #333;
-	}
-
-	.copy-message {
-		background: #efe;
-		border-left: 3px solid #6c6;
-		padding: 0.5em 1em;
-		margin: 0.5em 0;
-		font-size: 0.9em;
-		color: #060;
-	}
-
-	.loading {
-		text-align: center;
-		color: #666;
-		font-style: italic;
-		margin: 2em 0;
-	}
-
-	.page-stage {
-		position: relative;
-		isolation: isolate;
-		margin: 2em 0 3.5em;
-	}
-
-	.page-underlay {
-		position: absolute;
-		inset: 0;
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-end;
-		gap: 0.1em;
-		width: 100%;
-		min-height: 100%;
-		padding: 1em 1.5em 0.85em;
-		overflow: hidden;
-		border: 1px solid #ccc;
-		border-radius: 8px;
-		background: #fafafa;
-		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
-		color: #666;
-		text-align: left;
-		transform: translateY(var(--stack-y)) scale(var(--stack-scale));
-		transform-origin: center top;
-		z-index: var(--stack-z);
-		cursor: pointer;
-		transition: transform 0.2s ease, box-shadow 0.2s ease;
-	}
-
-	.page-underlay:hover {
-		background: #f7f7f7;
-		color: #111;
-		box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
-	}
-
-	.underlay-address {
-		font-size: 0.68em;
-		font-family: 'Courier New', monospace;
 		white-space: nowrap;
 		text-overflow: ellipsis;
-		overflow: hidden;
+		font-size: 16px;
+		color: var(--ink-soft);
 	}
 
-	.underlay-preview {
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', 'EB Garamond', serif;
-		font-size: 0.78em;
-		white-space: nowrap;
-		text-overflow: ellipsis;
-		overflow: hidden;
+	.t {
+		color: var(--muted);
 	}
 
-	.page-display {
-		position: relative;
-		z-index: 4;
-		margin: 0;
-		padding: 1.25em;
-		border: 1px solid #ccc;
-		border-radius: 8px;
-		background: #fff;
-		box-shadow: 0 5px 14px rgba(0, 0, 0, 0.07);
-		transition: opacity 0.2s ease;
-	}
-
-	.deck-navigation {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		gap: 0.85em;
-		margin: 0 0 1.1em;
-		color: #555;
-		font-size: 0.82em;
-	}
-
-	.deck-of {
-		color: #888;
-	}
-
-	.deck-arrow {
-		display: inline-grid;
-		place-items: center;
-		width: 2.1em;
-		height: 2.1em;
-		padding: 0;
-		border: 1px solid #999;
-		border-radius: 50%;
-		background: #fff;
-		color: #111;
-		font-size: 1.05em;
-	}
-
-	.deck-arrow:hover:not(:disabled) {
-		border-color: #111;
-		background: #111;
-		color: #fff;
-	}
-
-	.page-display.is-navigating {
-		opacity: 0.6;
-		pointer-events: none;
-	}
-
-	.page-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1em;
-		padding-bottom: 0.5em;
-		border-bottom: 1px solid #eee;
-	}
-
-	.loading-indicator {
-		display: inline-block;
-		animation: spin 1s linear infinite;
-		margin-left: 0.5em;
-		font-size: 0.9em;
-	}
-
-	@keyframes spin {
-		from { transform: rotate(0deg); }
-		to { transform: rotate(360deg); }
-	}
-
-	.page-navigation {
-		display: flex;
-		gap: 0.5em;
-	}
-
-	.nav-btn {
-		font-size: 0.85em;
-		padding: 0.4em 0.8em;
-		min-width: 5em;
-	}
-
-	.page-navigation-bottom {
-		display: flex;
-		justify-content: space-between;
-		margin-top: 1.5em;
-		padding-top: 1em;
-		border-top: 1px solid #eee;
-	}
-
-	.metadata {
-		font-size: 0.9em;
-		color: #666;
-		margin-bottom: 1em;
-		font-family: 'Courier New', 'Courier', monospace;
-	}
-
-	.mandira-kannada {
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
-		background: #f6f6f6;
-		padding: 0.75em;
-		margin: 0.5em 0;
-		border-left: 3px solid #777;
-		color: #111;
-		font-size: 1.05em;
-		line-height: 1.6;
-	}
-
-	.mandira-kannada-small {
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
-		background: #f6f6f6;
-		padding: 0.5em;
-		margin: 0.5em 0;
-		border-left: 3px solid #777;
-		color: #111;
-		font-size: 0.95em;
-		line-height: 1.6;
-	}
-
-	.mandira-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 0.5em;
-	}
-
-	.mandira-text {
-		word-wrap: break-word;
-		overflow-wrap: break-word;
-	}
-
-	.address-components {
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
-		font-size: 1em;
-		color: #000;
-		margin: 0.75em 0;
-		padding: 0.5em;
-		background: #f9f9f9;
-		border-left: 3px solid #666;
-	}
-
-	.address-components-search {
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', serif;
-		font-size: 0.95em;
-		color: #000;
-		margin: 0.5em 0;
-		padding: 0.5em;
-		background: #f9f9f9;
-		border-left: 3px solid #666;
-	}
-
-	.address-copy-buttons {
-		display: flex;
-		gap: 0.5em;
-		margin-top: 1em;
-		flex-wrap: wrap;
-	}
-
-	.copy-btn {
-		font-size: 0.75em;
-		padding: 0.3em 0.6em;
-		border: 1px solid #666;
-		background: #f5f5f5;
-		color: #333;
-	}
-
-	.copy-btn:hover {
-		background: #333;
-		color: #fff;
-		border-color: #333;
-	}
-
-	.copy-btn-inline {
-		font-size: 0.85em;
-		padding: 0.2em 0.5em;
-		border: 1px solid #666;
-		background: #fff;
-		color: #333;
-	}
-
-	.copy-btn-inline:hover {
-		background: #333;
-		color: #fff;
-		border-color: #333;
-	}
-
-	.browse-btn {
-		background: #000;
-		color: #fff;
-		border-color: #000;
-	}
-
-	.browse-btn:hover {
-		background: #333;
-	}
-
-	/* Download buttons */
-	.download-buttons {
-		display: flex;
-		gap: 0.5em;
-		margin-top: 0.5em;
-	}
-
-	.download-btn {
-		font-size: 0.75em;
-		padding: 0.3em 0.6em;
-		border: 1px solid #666;
-		background: #fff;
-		color: #222;
-	}
-
-	.download-btn:hover:not(:disabled) {
-		background: #111;
-		color: #fff;
-	}
-
-	.download-btn:disabled {
-		opacity: 0.6;
-		cursor: wait;
-	}
-
-	.content {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		padding: 1.5em;
-		margin: 1em 0;
-		overflow-x: auto;
-		border-radius: 4px;
-	}
-
-	.content pre {
-		font-family: 'Noto Sans Kannada', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Tunga', serif;
-		font-size: 0.95em;
-		line-height: 1.8;
-		white-space: pre;
-		margin: 0;
-		min-width: max-content;
-	}
-
-	:global(.search-highlight-yellow) {
-		background: #fff59d;
-		color: #000;
-		padding: 0.1em 0.2em;
-	}
-
-	:global(.search-highlight-blue) {
-		background: #bbdefb;
-		color: #000;
-		padding: 0.1em 0.2em;
-	}
-
-	.results {
-		margin: 2em 0;
-	}
-
-	.results.is-searching {
-		opacity: 0.72;
-		pointer-events: none;
-	}
-
-	.result-card {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		padding: 1.5em;
-		margin-top: 1em;
-		border-radius: 6px;
-	}
-
-	.result-info {
-		font-family: 'Courier New', 'Courier', monospace;
-		font-size: 0.9em;
-		margin-bottom: 1em;
-		line-height: 1.8;
-		word-break: break-all;
-		overflow-wrap: break-word;
+	.more {
+		margin-top: 8px;
+		font-size: 18px;
+		color: var(--ink-soft);
 	}
 
 	footer {
-		border-top: 1px solid #ccc;
-		padding-top: 1.5em;
-		margin-top: 3em;
-		font-size: 0.9em;
-		color: #666;
-		text-align: center;
+		display: flex;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 6px 20px;
+		margin-top: 64px;
+		padding: 16px 0 36px;
+		border-top: 1px solid var(--rule);
+		font-size: 18px;
+		color: var(--muted);
 	}
 
-	.made-by {
-		margin-top: 1em;
-	}
+	@media (max-width: 1179px) {
+		.wrap {
+			max-width: 910px;
+		}
 
-	.made-by p {
-		margin: 0.25em 0;
-	}
-
-	.made-by strong {
-		color: #333;
-	}
-
-	.made-by-links a {
-		color: #111;
-		text-decoration: none;
-		border-bottom: 1px solid #aaa;
-	}
-
-	.made-by-links a:hover {
-		border-bottom-color: #111;
-	}
-
-	.separator {
-		margin: 0 0.75em;
-		color: #ccc;
-	}
-
-	footer > p a {
-		color: #666;
-		text-decoration: none;
-		border-bottom: 1px dotted #999;
-	}
-
-	footer > p a:hover {
-		border-bottom-style: solid;
-		color: #000;
-	}
-
-	@media (max-width: 768px) {
 		.page {
-			padding: 2em 1em;
+			grid-template-columns: minmax(0, 1fr);
 		}
 
-		h1 {
-			font-size: 1.5em;
+		.pg {
+			font-size: clamp(14px, calc((100vw - 152px) / 48), 16px);
 		}
 
-		.page-header {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.75em;
+		.side {
+			margin-top: 18px;
+			padding-top: 14px;
+			border-top: 1px solid var(--rule);
+			font-size: 17px;
 		}
 
-		.page-display {
-			padding: 1em;
+		.note {
+			margin-bottom: 8px;
+		}
+	}
+
+	@media (max-width: 720px) {
+		.wrap {
+			padding: 0 18px;
 		}
 
-		.page-underlay {
-			padding-inline: 1em;
+		.panel {
+			padding: 10px 14px 14px;
 		}
 
-		.page-navigation-bottom {
-			flex-direction: column;
-			gap: 0.5em;
+		.help {
+			font-size: 17px;
 		}
 
-		.page-navigation-bottom button {
-			width: 100%;
+		.cmds {
+			font-size: 19px;
 		}
 
-		.download-buttons {
-			flex-direction: column;
+		.field textarea {
+			font-size: 19px;
 		}
 
-		.download-btn {
-			width: 100%;
+		.sheet {
+			padding: 0 10px;
+		}
+
+		.pg {
+			padding-left: 26px;
+			font-size: 14px;
+		}
+
+		.n {
+			left: -26px;
+			width: 16px;
+			font-size: 13px;
+		}
+
+		.row {
+			grid-template-columns: 1fr auto;
+		}
+
+		.snip {
+			display: none;
 		}
 	}
 </style>
