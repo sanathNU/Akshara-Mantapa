@@ -345,9 +345,10 @@ ${currentPage.formatted_content}
 		);
 	}
 
+	// No confirm(): all 410 pages take about a second, the button shows progress meanwhile, and browsers
+	// that suppress native dialogs answer confirm() with false, which silently stopped every download.
 	async function downloadBook() {
 		if (!currentPage || downloadingBook) return;
-		if (!confirm('This will generate and download all 410 pages of this book. This may take a minute. Continue?')) return;
 
 		downloadingBook = true;
 		downloadProgress = 0;
