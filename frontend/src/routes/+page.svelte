@@ -25,6 +25,9 @@
 	} from '$lib/text';
 	import { PAGES_PER_BOOK, libraryExponent, libraryPosition, pagesHoldingExponent } from '$lib/library';
 	import { formatPercent, shortAddress, timeAgo } from '$lib/format';
+	import { bookOf, coverPng } from '$lib/cover';
+	import BookCover from '$lib/components/BookCover.svelte';
+	import BookStair from '$lib/components/BookStair.svelte';
 	import IntroPicture from '$lib/components/IntroPicture.svelte';
 	import RoomPlan from '$lib/components/RoomPlan.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
@@ -294,13 +297,29 @@
 		return url.href;
 	}
 
-	function saveText(text: string, filename: string) {
-		const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+	function saveBlob(blob: Blob, filename: string) {
+		const url = URL.createObjectURL(blob);
 		const anchor = document.createElement('a');
 		anchor.href = url;
 		anchor.download = filename;
 		anchor.click();
 		URL.revokeObjectURL(url);
+	}
+
+	function saveText(text: string, filename: string) {
+		saveBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), filename);
+	}
+
+	/** The open book's cover as a 2400 x 3600 PNG. */
+	async function downloadCover() {
+		const book = currentPage && bookOf(currentPage.raw_address, scriptCode);
+		if (!book) return;
+		try {
+			saveBlob(await coverPng(book, scriptCode), `akshara-mantapa-book-${book.slot}-cover.png`);
+		} catch (e) {
+			error = 'Failed to draw the cover.';
+			console.error(e);
+		}
 	}
 
 	function downloadPage() {
@@ -515,6 +534,7 @@ ${page.formatted_content}
 						<button class="br" type="button" onclick={() => copy(pageLink(currentPage!), 'Link copied')}>copy link</button>
 						<button class="br" type="button" onclick={() => copy(where.display_string, 'Address copied')}>copy address</button>
 						<button class="br" type="button" onclick={downloadPage}>download page</button>
+						<button class="br" type="button" onclick={downloadCover}>download cover</button>
 						<button class="br" type="button" onclick={downloadBook} disabled={downloadingBook}>
 							{downloadingBook ? `downloading ${downloadProgress}%` : 'download book'}
 						</button>
@@ -539,6 +559,7 @@ ${page.formatted_content}
 			</div>
 
 			<aside class="side">
+				<BookCover rawAddress={currentPage.raw_address} script={scriptCode} />
 				<RoomPlan wall={where.gode} shelf={where.patti} book={where.pustaka} />
 				<p class="figcap sc">
 					wall {where.gode}<span class="sep" aria-hidden="true">·</span>shelf {where.patti}<span class="sep" aria-hidden="true"
@@ -590,6 +611,7 @@ ${page.formatted_content}
 		{:else}
 			{#each shownHistory as entry (entry.address)}
 				<button type="button" class="row" onclick={() => loadFromHistory(entry)} disabled={!!busy}>
+					<BookStair rawAddress={entry.address} script={scriptCode} />
 					<span class="addr">{shortAddress(entry.displayAddress)}</span>
 					<span class="snip" lang={script.lang}>{entry.preview}…</span>
 					<span class="t">{timeAgo(entry.timestamp, now)}</span>
@@ -974,9 +996,10 @@ ${page.formatted_content}
 		color: var(--muted);
 	}
 
+	/* Each entry leads with its book's stair (BookStair), the same for every page of that book. */
 	.row {
 		display: grid;
-		grid-template-columns: 170px minmax(0, 1fr) auto;
+		grid-template-columns: 30px 170px minmax(0, 1fr) auto;
 		gap: 20px;
 		align-items: baseline;
 		width: 100%;
@@ -1094,7 +1117,7 @@ ${page.formatted_content}
 		}
 
 		.row {
-			grid-template-columns: 1fr auto;
+			grid-template-columns: 30px 1fr auto;
 		}
 
 		.snip {
