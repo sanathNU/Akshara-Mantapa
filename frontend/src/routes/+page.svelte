@@ -596,10 +596,15 @@ ${page.formatted_content}
 					</p>
 				{/if}
 			</aside>
+			{@render pagesOpened(false)}
 		</section>
+	{:else}
+		{@render pagesOpened(true)}
 	{/if}
 
-	<section class="hist col" aria-label="Pages you’ve opened">
+	<!-- Inside the page grid when a page is open, so the margin can run on beside it instead of pushing it down. -->
+	{#snippet pagesOpened(alone: boolean)}
+	<section class="hist" class:col={alone} aria-label="Pages you’ve opened">
 		<div class="hist-head">
 			<h2>Pages you’ve opened</h2>
 			{#if history.length}
@@ -624,6 +629,7 @@ ${page.formatted_content}
 			{/if}
 		{/if}
 	</section>
+	{/snippet}
 
 	<footer class="col">
 		<span>Every page is computed in your browser.</span>
@@ -777,12 +783,27 @@ ${page.formatted_content}
 		font-weight: 600;
 	}
 
-	/* The page: a tinted sheet, with notes and the room plan in the margin. */
+	/* The page: a tinted sheet, with notes and the room plan in the margin. The history list sits under the
+	   sheet in the same grid and the margin spans both rows, so a margin taller than the sheet runs on beside
+	   the list instead of pushing it down. */
 	.page {
 		display: grid;
 		grid-template-columns: minmax(0, 840px) 250px;
+		grid-template-rows: auto 1fr;
 		column-gap: 48px;
 		margin-top: 40px;
+	}
+
+	.page > .main {
+		grid-area: 1 / 1;
+	}
+
+	.page > .side {
+		grid-area: 1 / 2 / span 2;
+	}
+
+	.page > .hist {
+		grid-area: 2 / 1;
 	}
 
 	.page.after-found {
@@ -1062,6 +1083,14 @@ ${page.formatted_content}
 
 		.page {
 			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: none;
+		}
+
+		/* one column: sheet, then margin, then history, in source order */
+		.page > .main,
+		.page > .side,
+		.page > .hist {
+			grid-area: auto;
 		}
 
 		.pg {
