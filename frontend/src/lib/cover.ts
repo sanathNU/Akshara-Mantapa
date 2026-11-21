@@ -171,7 +171,8 @@ export function tapeDigits(book: Book, count: number): number[] {
 }
 
 const ZERO: Record<ScriptCode, number> = { kannada: 0x0ce6, telugu: 0x0c66, tamil: 0x0be6 };
-const FONTS: Record<ScriptCode, string> = {
+/** CSS font-family for text in each script, as the layout loads it. */
+export const FONTS: Record<ScriptCode, string> = {
 	kannada: "'Noto Sans Kannada', sans-serif",
 	telugu: "'Noto Sans Telugu', sans-serif",
 	tamil: "'Noto Sans Tamil', sans-serif"

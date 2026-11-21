@@ -26,6 +26,7 @@
 	import { PAGES_PER_BOOK, libraryExponent, libraryPosition, pagesHoldingExponent } from '$lib/library';
 	import { formatPercent, shortAddress, timeAgo } from '$lib/format';
 	import { bookOf, coverPng } from '$lib/cover';
+	import { bookEpub, bookFileName } from '$lib/book-file';
 	import BookCover from '$lib/components/BookCover.svelte';
 	import BookStair from '$lib/components/BookStair.svelte';
 	import IntroPicture from '$lib/components/IntroPicture.svelte';
@@ -353,28 +354,19 @@ ${currentPage.formatted_content}
 		downloadingBook = true;
 		downloadProgress = 0;
 		try {
-			const h = currentPage.hierarchical;
-			let book = `Akshara-Mantapa Book
-====================
-Mandira: ${h.mandira_hex}
-Gode (Wall): ${h.gode}
-Patti (Shelf): ${h.patti}
-Pustaka (Book): ${h.pustaka}
-
-`;
-			let pageAddress = `${h.mandira_hex}.${h.gode}.${h.patti}.${h.pustaka}.1`;
+			const h = currentPage.hierarchical, rawAddress = currentPage.raw_address, script = scriptCode;
+			// each next page arrives with its text, so every page is computed once
+			const pages: string[] = [];
+			let page = await getPageByAddress(`${h.mandira_hex}.${h.gode}.${h.patti}.${h.pustaka}.1`, script);
 			for (let i = 1; i <= PAGES_PER_BOOK; i++) {
-				downloadProgress = Math.round((i / PAGES_PER_BOOK) * 100);
-				const page = await getPageByAddress(pageAddress, scriptCode);
-				book += `
---- Page ${i} ---
-${page.formatted_content}
-
-`;
-				if (i < PAGES_PER_BOOK) pageAddress = (await getNextPage(pageAddress, scriptCode)).raw_address;
-				if (i % 10 === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+				pages.push(page.formatted_content);
+				downloadProgress = Math.round((i / PAGES_PER_BOOK) * 95);
+				if (i < PAGES_PER_BOOK) page = await getNextPage(page.raw_address, script);
+				if (i % 10 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
 			}
-			saveText(book, `akshara-mantapa-book-${h.pustaka}.txt`);
+			const epub = await bookEpub(rawAddress, h, pages, script);
+			downloadProgress = 100;
+			saveBlob(new Blob([epub], { type: 'application/epub+zip' }), bookFileName(h));
 		} catch (e) {
 			error = 'Failed to download book.';
 			console.error(e);
