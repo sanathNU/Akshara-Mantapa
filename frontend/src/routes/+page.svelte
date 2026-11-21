@@ -25,6 +25,10 @@
 	} from '$lib/text';
 	import { PAGES_PER_BOOK, libraryExponent, libraryPosition, pagesHoldingExponent } from '$lib/library';
 	import { formatPercent, shortAddress, timeAgo } from '$lib/format';
+	import { bookOf, coverPng } from '$lib/cover';
+	import { bookEpub, bookFileName } from '$lib/book-file';
+	import BookCover from '$lib/components/BookCover.svelte';
+	import BookStair from '$lib/components/BookStair.svelte';
 	import IntroPicture from '$lib/components/IntroPicture.svelte';
 	import RoomPlan from '$lib/components/RoomPlan.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
@@ -294,13 +298,29 @@
 		return url.href;
 	}
 
-	function saveText(text: string, filename: string) {
-		const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+	function saveBlob(blob: Blob, filename: string) {
+		const url = URL.createObjectURL(blob);
 		const anchor = document.createElement('a');
 		anchor.href = url;
 		anchor.download = filename;
 		anchor.click();
 		URL.revokeObjectURL(url);
+	}
+
+	function saveText(text: string, filename: string) {
+		saveBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), filename);
+	}
+
+	/** The open book's cover as a 2400 x 3600 PNG. */
+	async function downloadCover() {
+		const book = currentPage && bookOf(currentPage.raw_address, scriptCode);
+		if (!book) return;
+		try {
+			saveBlob(await coverPng(book, scriptCode), `akshara-mantapa-book-${book.slot}-cover.png`);
+		} catch (e) {
+			error = 'Failed to draw the cover.';
+			console.error(e);
+		}
 	}
 
 	function downloadPage() {
@@ -326,35 +346,27 @@ ${currentPage.formatted_content}
 		);
 	}
 
+	// No confirm(): all 410 pages take about a second, the button shows progress meanwhile, and browsers
+	// that suppress native dialogs answer confirm() with false, which silently stopped every download.
 	async function downloadBook() {
 		if (!currentPage || downloadingBook) return;
-		if (!confirm('This will generate and download all 410 pages of this book. This may take a minute. Continue?')) return;
 
 		downloadingBook = true;
 		downloadProgress = 0;
 		try {
-			const h = currentPage.hierarchical;
-			let book = `Akshara-Mantapa Book
-====================
-Mandira: ${h.mandira_hex}
-Gode (Wall): ${h.gode}
-Patti (Shelf): ${h.patti}
-Pustaka (Book): ${h.pustaka}
-
-`;
-			let pageAddress = `${h.mandira_hex}.${h.gode}.${h.patti}.${h.pustaka}.1`;
+			const h = currentPage.hierarchical, rawAddress = currentPage.raw_address, script = scriptCode;
+			// each next page arrives with its text, so every page is computed once
+			const pages: string[] = [];
+			let page = await getPageByAddress(`${h.mandira_hex}.${h.gode}.${h.patti}.${h.pustaka}.1`, script);
 			for (let i = 1; i <= PAGES_PER_BOOK; i++) {
-				downloadProgress = Math.round((i / PAGES_PER_BOOK) * 100);
-				const page = await getPageByAddress(pageAddress, scriptCode);
-				book += `
---- Page ${i} ---
-${page.formatted_content}
-
-`;
-				if (i < PAGES_PER_BOOK) pageAddress = (await getNextPage(pageAddress, scriptCode)).raw_address;
-				if (i % 10 === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+				pages.push(page.formatted_content);
+				downloadProgress = Math.round((i / PAGES_PER_BOOK) * 95);
+				if (i < PAGES_PER_BOOK) page = await getNextPage(page.raw_address, script);
+				if (i % 10 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
 			}
-			saveText(book, `akshara-mantapa-book-${h.pustaka}.txt`);
+			const epub = await bookEpub(rawAddress, h, pages, script);
+			downloadProgress = 100;
+			saveBlob(new Blob([epub], { type: 'application/epub+zip' }), bookFileName(h));
 		} catch (e) {
 			error = 'Failed to download book.';
 			console.error(e);
@@ -515,6 +527,7 @@ ${page.formatted_content}
 						<button class="br" type="button" onclick={() => copy(pageLink(currentPage!), 'Link copied')}>copy link</button>
 						<button class="br" type="button" onclick={() => copy(where.display_string, 'Address copied')}>copy address</button>
 						<button class="br" type="button" onclick={downloadPage}>download page</button>
+						<button class="br" type="button" onclick={downloadCover}>download cover</button>
 						<button class="br" type="button" onclick={downloadBook} disabled={downloadingBook}>
 							{downloadingBook ? `downloading ${downloadProgress}%` : 'download book'}
 						</button>
@@ -539,6 +552,7 @@ ${page.formatted_content}
 			</div>
 
 			<aside class="side">
+				<BookCover rawAddress={currentPage.raw_address} script={scriptCode} />
 				<RoomPlan wall={where.gode} shelf={where.patti} book={where.pustaka} />
 				<p class="figcap sc">
 					wall {where.gode}<span class="sep" aria-hidden="true">·</span>shelf {where.patti}<span class="sep" aria-hidden="true"
@@ -575,10 +589,15 @@ ${page.formatted_content}
 					</p>
 				{/if}
 			</aside>
+			{@render pagesOpened(false)}
 		</section>
+	{:else}
+		{@render pagesOpened(true)}
 	{/if}
 
-	<section class="hist col" aria-label="Pages you’ve opened">
+	<!-- Inside the page grid when a page is open, so the margin can run on beside it instead of pushing it down. -->
+	{#snippet pagesOpened(alone: boolean)}
+	<section class="hist" class:col={alone} aria-label="Pages you’ve opened">
 		<div class="hist-head">
 			<h2>Pages you’ve opened</h2>
 			{#if history.length}
@@ -590,6 +609,7 @@ ${page.formatted_content}
 		{:else}
 			{#each shownHistory as entry (entry.address)}
 				<button type="button" class="row" onclick={() => loadFromHistory(entry)} disabled={!!busy}>
+					<BookStair rawAddress={entry.address} script={scriptCode} />
 					<span class="addr">{shortAddress(entry.displayAddress)}</span>
 					<span class="snip" lang={script.lang}>{entry.preview}…</span>
 					<span class="t">{timeAgo(entry.timestamp, now)}</span>
@@ -602,6 +622,7 @@ ${page.formatted_content}
 			{/if}
 		{/if}
 	</section>
+	{/snippet}
 
 	<footer class="col">
 		<span>Every page is computed in your browser.</span>
@@ -755,12 +776,27 @@ ${page.formatted_content}
 		font-weight: 600;
 	}
 
-	/* The page: a tinted sheet, with notes and the room plan in the margin. */
+	/* The page: a tinted sheet, with notes and the room plan in the margin. The history list sits under the
+	   sheet in the same grid and the margin spans both rows, so a margin taller than the sheet runs on beside
+	   the list instead of pushing it down. */
 	.page {
 		display: grid;
 		grid-template-columns: minmax(0, 840px) 250px;
+		grid-template-rows: auto 1fr;
 		column-gap: 48px;
 		margin-top: 40px;
+	}
+
+	.page > .main {
+		grid-area: 1 / 1;
+	}
+
+	.page > .side {
+		grid-area: 1 / 2 / span 2;
+	}
+
+	.page > .hist {
+		grid-area: 2 / 1;
 	}
 
 	.page.after-found {
@@ -974,9 +1010,10 @@ ${page.formatted_content}
 		color: var(--muted);
 	}
 
+	/* Each entry leads with its book's stair (BookStair), the same for every page of that book. */
 	.row {
 		display: grid;
-		grid-template-columns: 170px minmax(0, 1fr) auto;
+		grid-template-columns: 30px 170px minmax(0, 1fr) auto;
 		gap: 20px;
 		align-items: baseline;
 		width: 100%;
@@ -1039,6 +1076,14 @@ ${page.formatted_content}
 
 		.page {
 			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: none;
+		}
+
+		/* one column: sheet, then margin, then history, in source order */
+		.page > .main,
+		.page > .side,
+		.page > .hist {
+			grid-area: auto;
 		}
 
 		.pg {
@@ -1094,7 +1139,7 @@ ${page.formatted_content}
 		}
 
 		.row {
-			grid-template-columns: 1fr auto;
+			grid-template-columns: 30px 1fr auto;
 		}
 
 		.snip {
