@@ -6,22 +6,22 @@
 	interface Props {
 		rawAddress: string;
 		script: ScriptCode;
+		/** Width and height in pixels. */
+		size?: number;
 	}
 
-	let { rawAddress, script }: Props = $props();
+	let { rawAddress, script, size = 30 }: Props = $props();
 
 	const book = $derived(bookOf(rawAddress, script));
 	// Built only from numbers, in stairSvg.
 	const svg = $derived(book ? stairSvg(book) : '');
 </script>
 
-<span class="stair">{@html svg}</span>
+<span class="stair" style:width="{size}px" style:height="{size}px">{@html svg}</span>
 
 <style>
 	.stair {
 		display: block;
-		width: 30px;
-		height: 30px;
 		align-self: center;
 	}
 

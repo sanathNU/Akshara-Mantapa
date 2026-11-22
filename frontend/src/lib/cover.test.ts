@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { bookOf, callDigits, coverDrawing, coverSvg, palette, scriptDigits, stairSvg, tapeDigits } from './cover';
+import {
+	bookOf,
+	callDigits,
+	coverDrawing,
+	coverMarks,
+	coverSvg,
+	palette,
+	randomAddress,
+	scriptDigits,
+	seededRandom,
+	shelfNeighbours,
+	stairFacts,
+	stairMarks,
+	stairSvg,
+	tapeDigits
+} from './cover';
 
 const ROOM = '9f3a51c27be04d1186a2c0e7b55d0193';
 
@@ -113,5 +128,72 @@ describe('scriptDigits', () => {
 		expect(scriptDigits(410, 'kannada')).toBe('೪೧೦');
 		expect(scriptDigits(410, 'telugu')).toBe('౪౧౦');
 		expect(scriptDigits(410, 'tamil')).toBe('௪௧௦');
+	});
+});
+
+describe('randomAddress', () => {
+	it('repeats for a seeded source and stays inside the library', () => {
+		const a = randomAddress(57_324, seededRandom(20261164));
+		expect(randomAddress(57_324, seededRandom(20261164))).toBe(a);
+		expect(BigInt(`0x${a}`) < 57_324n ** 400n).toBe(true);
+	});
+
+	it('gives the Info page a first book in a full-length room', () => {
+		const book = bookOf(randomAddress(57_324, seededRandom(20261164)), 'kannada')!;
+		expect(book).toMatchObject({ wall: 3, shelf: 2, slot: 1, binding: 0 });
+		expect(book.roomHex.length).toBeGreaterThan(1500);
+	});
+});
+
+describe('shelfNeighbours', () => {
+	it('walks along the same shelf from this book, wrapping after 32', () => {
+		const book = bookOf(raw(ROOM, 2, 4, 30, 77), 'kannada')!;
+		const next = shelfNeighbours(book, 4);
+		expect(next.map((n) => n.slot)).toEqual([30, 31, 32, 1]);
+		for (const n of next) expect(bookOf(n.address, 'kannada')).toMatchObject({ roomHex: ROOM, wall: 2, shelf: 4, slot: n.slot });
+	});
+});
+
+describe('coverMarks', () => {
+	it('puts all four markers on the cover', () => {
+		for (const address of ['0', raw(ROOM, 3, 2, 17, 1), 'f'.repeat(1580)]) {
+			const marks = coverMarks(bookOf(address, 'kannada')!);
+			expect(marks).toHaveLength(4);
+			for (const [x, y] of marks) {
+				expect(x).toBeGreaterThan(0);
+				expect(x).toBeLessThan(400);
+				expect(y).toBeGreaterThan(0);
+				expect(y).toBeLessThan(600);
+			}
+		}
+	});
+
+	it('puts the second marker on the first hole of the call number', () => {
+		const book = bookOf(raw(ROOM, 4, 5, 32, 1), 'kannada')!;
+		const [x, y] = coverMarks(book)[1];
+		const r2 = (n: number) => Math.round(n * 100) / 100;
+		const accent = coverSvg(book, 'kannada').match(new RegExp(`<path d="([^"]+)" fill="${palette(book.binding).accent}"/>`))![1];
+		expect(accent.startsWith(`M${r2(x - 2.3)},${r2(y)}`)).toBe(true);
+	});
+});
+
+describe('stairFacts and stairMarks', () => {
+	it('keeps steps and turns in range, the same for every page of a book', () => {
+		for (let slot = 1; slot <= 32; slot++) {
+			const facts = stairFacts(bookOf(raw(ROOM, 1, 3, slot, 1), 'kannada')!);
+			expect(facts.stepsPerTurn).toBeGreaterThanOrEqual(14);
+			expect(facts.stepsPerTurn).toBeLessThanOrEqual(21);
+			expect(facts.turns).toBeGreaterThanOrEqual(1.5);
+			expect(facts.turns).toBeLessThan(7.5);
+			expect(stairFacts(bookOf(raw(ROOM, 1, 3, slot, 410), 'kannada')!)).toEqual(facts);
+		}
+	});
+
+	it('puts the four stair markers inside the medallion', () => {
+		for (let slot = 1; slot <= 32; slot++) {
+			const marks = stairMarks(bookOf(raw(ROOM, 4, 1, slot, 1), 'telugu')!);
+			expect(marks).toHaveLength(4);
+			for (const [x, y] of marks) expect(Math.hypot(x - 50, y - 50)).toBeLessThan(49);
+		}
 	});
 });

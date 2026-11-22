@@ -11,6 +11,7 @@
 
 import { SCRIPT_CONFIG, type ScriptCode } from './api';
 import { BOOKS_PER_SHELF, PAGES_PER_BOOK, SHELVES_PER_WALL, WALLS_PER_ROOM } from './library';
+import { PAGE_CLUSTERS } from './text';
 
 /** A book of the library, as far as its cover is concerned. */
 export interface Book {
@@ -49,7 +50,7 @@ export interface Palette {
 	tread: string;
 }
 
-type Point = [number, number];
+export type Point = [number, number];
 
 export const COVER_WIDTH = 400;
 export const COVER_HEIGHT = 600;
@@ -78,6 +79,9 @@ function rng(seed: number): () => number {
 		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 	};
 }
+
+/** mulberry32 under a public name, as a repeatable source for `randomAddress`. */
+export const seededRandom = rng;
 
 /** FNV-1a, 32 bits. */
 function fnv1a(s: string): number {
@@ -158,6 +162,22 @@ export function bookOf(rawAddressHex: string, script: ScriptCode): Book | null {
 	};
 }
 
+/** A uniformly random raw page address (hex) in a library of alphabetSize^400 pages. */
+export function randomAddress(alphabetSize: number, random: () => number = Math.random): string {
+	let n = 0n;
+	for (let i = 0; i < 800; i++) n = (n << 8n) | BigInt(Math.floor(random() * 256)); // 6,400 bits, more than any address
+	return (n % BigInt(alphabetSize) ** BigInt(PAGE_CLUSTERS)).toString(16);
+}
+
+/** Raw addresses (page 1) of `count` books on this book's shelf, starting with it and wrapping after the last. */
+export function shelfNeighbours(book: Book, count: number): { slot: number; address: string }[] {
+	const first = book.number - BigInt(book.slot - 1);
+	return Array.from({ length: count }, (_, k) => {
+		const slot = ((book.slot - 1 + k) % BOOKS_PER_SHELF) + 1;
+		return { slot, address: ((first + BigInt(slot - 1)) * BigInt(PAGES_PER_BOOK)).toString(16) };
+	});
+}
+
 /** Wall (2 bits), shelf (3 bits) and book (5 bits) packed into three hex digits. */
 export function callDigits(book: Book): number[] {
 	const call = ((book.wall - 1) << 8) | ((book.shelf - 1) << 5) | (book.slot - 1);
@@ -193,35 +213,84 @@ function panel(stroke: string): string {
 	return `${s}<line x1="${W / 2}" x2="${W / 2}" y1="${y1}" y2="${yb}"/></g>`;
 }
 
-/** Five strips of tape, four holes a row: the room's hex digits, then the book's call number in the accent. */
-function tape(book: Book, C: Palette, r: () => number): string {
-	const strips = 5, sw = 46, gap = 12, pitch = 7.4, bits = [8, 16, 30, 38];
-	const x0 = W / 2 - (strips * sw + (strips - 1) * gap) / 2;
-	const cuts = Array.from({ length: strips }, () => {
+/** Five strips of tape; across each, four hole positions (one per bit, high bit first) and a sprocket hole. */
+const TAPE = { strips: 5, width: 46, gap: 12, pitch: 7.4, bits: [8, 16, 30, 38], hole: 2.3, sprocket: 23 };
+
+interface TapeStrip {
+	x: number;
+	top: number;
+	bottom: number;
+	tilt: number;
+	tail: number;
+}
+
+interface TapeRow {
+	x: number;
+	y: number;
+	digit: number;
+	/** One of the last three rows: wall, shelf and book. */
+	call: boolean;
+}
+
+/** Offsets across a strip of the holes punched for one hex digit. */
+const holesFor = (digit: number) => TAPE.bits.filter((_, b) => (digit >> (3 - b)) & 1);
+
+/** Where the strips are cut and where each row of holes sits. The seed decides the cuts. */
+function tapeLayout(book: Book): { strips: TapeStrip[]; rows: TapeRow[] } {
+	const r = rng(book.seed);
+	const x0 = W / 2 - (TAPE.strips * TAPE.width + (TAPE.strips - 1) * TAPE.gap) / 2;
+	const strips = Array.from({ length: TAPE.strips }, (_, k) => {
 		const top = FR.y + 10 + r() * 16, bottom = FR.y + FR.h - 10 - r() * 16;
-		return { top, bottom, tilt: (r() - 0.5) * 10, tail: (r() - 0.5) * 10, rows: Math.floor((bottom - top - 14) / pitch) };
+		return { x: x0 + k * (TAPE.width + TAPE.gap), top, bottom, tilt: (r() - 0.5) * 10, tail: (r() - 0.5) * 10 };
 	});
-	const digits = tapeDigits(book, cuts.reduce((n, c) => n + c.rows, 0));
-	let paper = '', holes = '', sprockets = '', marks = '', i = 0;
-	cuts.forEach((c, k) => {
-		const x = x0 + k * (sw + gap);
-		paper += `<polygon points="${pts([[x, c.top + c.tilt], [x + sw, c.top - c.tilt], [x + sw, c.bottom - c.tail], [x, c.bottom + c.tail]])}"/>`;
-		for (let j = 0; j < c.rows; j++, i++) {
-			const y = c.top + 9 + j * pitch, call = i >= digits.length - 3;
-			sprockets += disc(x + 23, y, 1.1);
-			bits.forEach((hx, b) => {
-				if (!((digits[i] >> (3 - b)) & 1)) return;
-				if (call) marks += disc(x + hx, y, 2.3);
-				else holes += disc(x + hx, y, 2.3);
-			});
+	const counts = strips.map((s) => Math.floor((s.bottom - s.top - 14) / TAPE.pitch));
+	const digits = tapeDigits(book, counts.reduce((n, c) => n + c, 0));
+	const rows: TapeRow[] = [];
+	strips.forEach((s, k) => {
+		for (let j = 0; j < counts[k]; j++) {
+			const i = rows.length;
+			rows.push({ x: s.x, y: s.top + 9 + j * TAPE.pitch, digit: digits[i], call: i >= digits.length - 3 });
 		}
 	});
+	return { strips, rows };
+}
+
+/** Five strips of tape, four holes a row: the room's hex digits, then the book's call number in the accent. */
+function tape(book: Book, C: Palette): string {
+	const { strips, rows } = tapeLayout(book);
+	let paper = '', holes = '', sprockets = '', marks = '';
+	for (const s of strips) {
+		paper += `<polygon points="${pts([[s.x, s.top + s.tilt], [s.x + TAPE.width, s.top - s.tilt], [s.x + TAPE.width, s.bottom - s.tail], [s.x, s.bottom + s.tail]])}"/>`;
+	}
+	for (const row of rows) {
+		sprockets += disc(row.x + TAPE.sprocket, row.y, 1.1);
+		for (const hx of holesFor(row.digit)) {
+			if (row.call) marks += disc(row.x + hx, row.y, TAPE.hole);
+			else holes += disc(row.x + hx, row.y, TAPE.hole);
+		}
+	}
 	return (
 		`<g fill="${C.paper}" stroke="${C.ink}" stroke-opacity=".3" stroke-width=".6">${paper}</g>` +
 		`<path d="${sprockets}" fill="${C.void}" fill-opacity=".5"/>` +
 		`<path d="${holes}" fill="${C.void}" fill-opacity=".85"/>` +
 		`<path d="${marks}" fill="${C.accent}"/>`
 	);
+}
+
+/**
+ * Where a diagram's four numbered markers go on the cover (400 x 600 frame): on the first strip's room
+ * digits, on the first hole of the call number, on the bare binding, and on the label.
+ */
+export function coverMarks(book: Book): Point[] {
+	const { strips, rows } = tapeLayout(book);
+	const first = strips[0];
+	const call = rows.find((row) => row.call && holesFor(row.digit).length) ?? rows[rows.length - 1];
+	return [
+		[first.x + 13, first.top + first.tilt + 46],
+		[call.x + (holesFor(call.digit)[0] ?? TAPE.bits[0]), call.y],
+		[36, 80],
+		[70, FR.y + FR.h + 12]
+	];
 }
 
 /** The label rows: where the book stands, in the script's own words and digits. */
@@ -244,7 +313,7 @@ function label(book: Book, script: ScriptCode, C: Palette): CoverText[] {
 export function coverDrawing(book: Book, script: ScriptCode, { titled = true } = {}): { svg: string; text: CoverText[] } {
 	const C = palette(book.binding);
 	return {
-		svg: `<rect width="${W}" height="${H}" fill="${C.ground}"/>${tape(book, C, rng(book.seed))}${panel(C.ink)}`,
+		svg: `<rect width="${W}" height="${H}" fill="${C.ground}"/>${tape(book, C)}${panel(C.ink)}`,
 		text: titled ? label(book, script, C) : []
 	};
 }
@@ -309,33 +378,88 @@ export async function coverPng(book: Book, script: ScriptCode, scale = 6): Promi
  * an open centre, a couple of turns in sight or many. Every stair leans the same way; the seed sets the steps
  * per turn, the depth, the turning direction and where the top step starts.
  */
-export function stairSvg(book: Book): string {
-	const C = palette(book.binding), r = rng(book.seed);
-	const c0: Point = [50, 50], Ro = 40, Ri = 22, lean = 3;
-	const K = 14 + Math.floor(r() * 8), turns = 1.5 + r() * 6, S = Math.round(turns * K);
-	const dir = r() < 0.5 ? 1 : -1, a0 = r() * TAU, dA = TAU / K;
+/** The stair's frame (100 x 100): the well's centre, its wall and open-centre radii, and how far the bottom sits low. */
+const STAIR = { centre: [50, 50] as Point, outer: 40, inner: 22, lean: 3 };
+
+interface StairLayout {
+	/** Steps per turn. */
+	K: number;
+	turns: number;
+	/** Steps in sight. */
+	S: number;
+	dir: 1 | -1;
+	/** This book's step, one turn down. */
+	mark: number;
+	/** How much smaller step s looks than the top step. */
+	p: (s: number) => number;
+	/** Centre of the well at step s. */
+	centre: (s: number) => Point;
+	/** Angle where step s starts. */
+	angle: (s: number) => number;
+}
+
+/** The stair's shape for a book: steps per turn, turns in sight, winding direction and where the top step starts. */
+function stairLayout(book: Book): StairLayout {
+	const r = rng(book.seed);
+	const K = 14 + Math.floor(r() * 8), turns = 1.5 + r() * 6;
+	const dir = r() < 0.5 ? 1 : -1, a0 = r() * TAU;
 	const p = (s: number) => 1 / (1 + (0.75 * s) / K);
-	const centre = (s: number): Point => [c0[0], c0[1] + lean * (1 - p(s))];
-	const shade = (s: number) => 1 - p(s) ** 1.25;
+	return {
+		K,
+		turns,
+		S: Math.round(turns * K),
+		dir,
+		mark: K + ((book.slot - 1) % K),
+		p,
+		centre: (s) => [STAIR.centre[0], STAIR.centre[1] + STAIR.lean * (1 - p(s))],
+		angle: (s) => a0 + (dir * s * TAU) / K
+	};
+}
+
+export function stairSvg(book: Book): string {
+	const C = palette(book.binding), L = stairLayout(book), dA = TAU / L.K;
+	const shade = (s: number) => 1 - L.p(s) ** 1.25;
 	const arc = (c: Point, rad: number, from: number, to: number, n = 4) =>
 		Array.from({ length: n }, (_, k) => polar(rad, from + ((to - from) * k) / (n - 1), c));
 
 	let s = `<circle cx="50" cy="50" r="49" fill="${C.ground}"/>`;
-	for (let z = 0; z <= S + K; z += K / 4) {
-		const c = centre(z);
-		s += `<circle cx="${f(c[0])}" cy="${f(c[1])}" r="${f(Ro * p(z))}" fill="${mix(C.wood, C.void, shade(z))}"/>`;
+	for (let z = 0; z <= L.S + L.K; z += L.K / 4) {
+		const c = L.centre(z);
+		s += `<circle cx="${f(c[0])}" cy="${f(c[1])}" r="${f(STAIR.outer * L.p(z))}" fill="${mix(C.wood, C.void, shade(z))}"/>`;
 	}
-	const mark = K + ((book.slot - 1) % K);
-	for (let k = S - 1; k >= 0; k--) {
-		const c = centre(k), pk = p(k), t = shade(k);
-		const from = a0 + dir * k * dA, to = from + dir * dA * 1.04;
-		const outer = arc(c, Ro * pk, from, to), inner = arc(c, Ri * pk, to, from);
+	for (let k = L.S - 1; k >= 0; k--) {
+		const c = L.centre(k), pk = L.p(k), t = shade(k);
+		const from = L.angle(k), to = from + L.dir * dA * 1.04;
+		const outer = arc(c, STAIR.outer * pk, from, to), inner = arc(c, STAIR.inner * pk, to, from);
 		const tone = mix(k % 2 ? C.tread : mix(C.tread, C.wood, 0.14), C.void, t);
-		s += `<polygon points="${pts([...outer, ...inner])}" fill="${k === mark ? C.accent : tone}"/>`;
-		if (k < 2 * K) {
+		s += `<polygon points="${pts([...outer, ...inner])}" fill="${k === L.mark ? C.accent : tone}"/>`;
+		if (k < 2 * L.K) {
 			s += `<polyline points="${pts(inner)}" fill="none" stroke="${C.rail}" stroke-opacity="${f(0.9 * (1 - t))}" stroke-width="${f(1.2 * pk)}"/>`;
 		}
 	}
-	s += `<circle cx="50" cy="50" r="${Ro + 0.6}" fill="none" stroke="${C.ink}" stroke-opacity=".35" stroke-width=".8"/>`;
+	s += `<circle cx="50" cy="50" r="${STAIR.outer + 0.6}" fill="none" stroke="${C.ink}" stroke-opacity=".35" stroke-width=".8"/>`;
 	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true">${s}</svg>`;
+}
+
+export interface StairFacts {
+	stepsPerTurn: number;
+	turns: number;
+	/** Seen from above, going down. */
+	clockwise: boolean;
+}
+
+/** What the seed chose for a book's stair. */
+export function stairFacts(book: Book): StairFacts {
+	const L = stairLayout(book);
+	return { stepsPerTurn: L.K, turns: L.turns, clockwise: L.dir > 0 };
+}
+
+/**
+ * Where a diagram's four numbered markers go on the stair (100 x 100 frame): on the binding ring, on a step
+ * half a turn from this book's (so the two never crowd), on this book's step, and at the bottom.
+ */
+export function stairMarks(book: Book): Point[] {
+	const L = stairLayout(book), mid = (STAIR.outer + STAIR.inner) / 2;
+	const onStep = (k: number) => polar(mid * L.p(k), L.angle(k) + (L.dir * Math.PI) / L.K, L.centre(k));
+	return [polar(44.8, -2.4, STAIR.centre), onStep(L.mark - Math.round(L.K / 2)), onStep(L.mark), L.centre(L.S)];
 }
