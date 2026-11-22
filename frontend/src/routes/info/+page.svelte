@@ -1,6 +1,31 @@
 <script lang="ts">
 	import DocPage from '$lib/components/DocPage.svelte';
+	import BookDiagram from '$lib/components/BookDiagram.svelte';
+	import BookStair from '$lib/components/BookStair.svelte';
+	import { SCRIPT_CONFIG } from '$lib/api';
+	import { bookOf, randomAddress, seededRandom, shelfNeighbours } from '$lib/cover';
 	import { base } from '$app/paths';
+
+	// The book the covers section draws: the same one on every visit (an ochre book with a full-length
+	// room), until [another book] picks one at random.
+	const ALPHABET = SCRIPT_CONFIG.kannada.alphabetSize;
+	let exampleAddress = $state(randomAddress(ALPHABET, seededRandom(20261164)));
+	const anotherBook = () => (exampleAddress = randomAddress(ALPHABET));
+	const example = $derived(bookOf(exampleAddress, 'kannada'));
+	const neighbours = $derived(example ? shelfNeighbours(example, 8) : []);
+
+	const COVER_KEY = [
+		'The room number, one hex digit per row, most significant first. A filled hole is a 1.',
+		'The last three rows, in a different colour: the wall, shelf and book.',
+		'The colour itself, picked by the last four bits of the book number.',
+		'The label, where the book stands, written out in Kannada.'
+	];
+	const STAIR_KEY = [
+		'The ring round the well: the book’s binding, the same colour as its cover.',
+		'The steps, between 14 and 21 to a turn depending on the book.',
+		'This book’s step, one turn down, in the accent.',
+		'The bottom. Some stairs show a turn and a half before it goes dark, some go down seven and a half.'
+	];
 
 	const exampleClusters = [
 		{ cluster: 'ಕ', description: 'Simple consonant: ka' },
@@ -234,6 +259,87 @@ Where:
 		</section>
 
 		<section>
+			<h2>The Book Covers</h2>
+			<p>
+				In Borges' library every book looks the same from the outside. Same size, same binding, no title on
+				the spine. The only thing that makes a <span lang="kn">ಪುಸ್ತಕ</span> that particular
+				<span lang="kn">ಪುಸ್ತಕ</span> is where it sits. So every book here gets a cover made out of exactly
+				that: its address.
+			</p>
+
+			<BookDiagram rawAddress={exampleAddress} script="kannada" kind="cover" key={COVER_KEY} onanother={anotherBook} />
+
+			<p>
+				It's punched paper tape, the kind old computers read their programs from. Each row holds one hex
+				digit of the room number (the <span lang="kn">ಮಂದಿರ</span>), four holes to a row. A room number runs
+				to about 1,577 hex digits and the tape fits around 140 of them, so think of it as a signature rather
+				than the full name. The last three rows spell out where the book sits: 2 bits for the
+				<span lang="kn">ಗೋಡೆ</span>, 3 for the <span lang="kn">ಪಟ್ಟಿ</span> and 5 for the
+				<span lang="kn">ಪುಸ್ತಕ</span>.
+			</p>
+			<div class="note">
+				<p>
+					Yes, this means the tape isn't unique. With 140 digits out of 1,577, every tape is shared with
+					about 10<sup>1,729</sup> other books (a nice number, if you're Ramanujan). In my defence, there are
+					around 10<sup>171</sup> possible tapes, which is more than the number of atoms in the observable
+					universe (about 10<sup>80</sup>), squared. Turn every atom into a book and you'd still probably
+					never find two matching tapes. The universe is just too small for this library.
+				</p>
+			</div>
+			<p>
+				The colour comes from the last four bits of the book number, one of sixteen bindings, so a shelf of
+				32 books runs through all of them twice. Where the tape is torn and how the strips are staggered is
+				seeded from the whole address, so even two books with the same holes almost never look alike. The
+				page number gets thrown away first, which means all 410 pages of a book share one cover.
+			</p>
+			<div class="note">
+				<p>
+					One quirk: <code>[random page]</code> starts from a 256-bit address, so those rooms are short
+					(around 60 hex digits) and the tape runs out after a couple of strips. Pages you find by searching
+					usually sit in full-length rooms and fill the whole tape. I left it like that on purpose. A
+					half-empty tape is honest about where you are.
+				</p>
+			</div>
+			<p>
+				Any cover can be saved with <code>[download cover]</code>, and it's also the cover of the EPUB you
+				get from <code>[download book]</code>.
+			</p>
+
+			<h3>The Spiral Stairs</h3>
+			<p>
+				Borges puts a spiral stairway next to every hexagon, one that sinks forever below you and climbs
+				forever above. I liked that too much to leave out, so every page in your history list gets a little
+				one: a round well seen from above, the steps hugging the wall, and a dark bottom you never quite
+				reach.
+			</p>
+
+			<BookDiagram rawAddress={exampleAddress} script="kannada" kind="stair" key={STAIR_KEY} onanother={anotherBook} />
+
+			<p>
+				Like the cover, the stair belongs to the book and not the page. Steps per turn, how deep you can see,
+				which way it winds and where the top step starts are all seeded from the book's address. Every page
+				of a book gets the same stair, which turns out to be handy: scroll through your history and the pages
+				that came out of one book jump out at you.
+			</p>
+
+			{#if example}
+				<div class="stair-row">
+					{#each neighbours as n, i (n.slot)}
+						<figure class:on={i === 0}>
+							<BookStair rawAddress={n.address} script="kannada" size={48} />
+							<figcaption>{n.slot}</figcaption>
+						</figure>
+					{/each}
+				</div>
+				<p class="row-caption">
+					Books {example.slot} onwards on wall {example.wall}, shelf {example.shelf}. Neighbours differ in
+					their last bits, so each gets its own colour, and every bit goes into the seed, so each gets its
+					own stair.
+				</p>
+			{/if}
+		</section>
+
+		<section>
 			<h2>Comparison Summary</h2>
 
 			<div class="table-wrap">
@@ -339,3 +445,44 @@ Where:
 			</ul>
 		</section>
 	</DocPage>
+
+<style>
+	/* The covers section: the example book's shelf, as a row of stairs. */
+	.stair-row {
+		display: grid;
+		grid-template-columns: repeat(8, minmax(0, 1fr));
+		gap: 12px;
+		max-width: 520px;
+		margin: 4px 0 6px;
+	}
+
+	.stair-row figure {
+		margin: 0;
+		display: grid;
+		gap: 2px;
+		justify-items: center;
+		font-size: 15px;
+		color: var(--muted);
+		font-variant-numeric: lining-nums;
+	}
+
+	.stair-row figure :global(.stair) {
+		max-width: 100%;
+	}
+
+	.stair-row .on {
+		color: var(--warm);
+		font-weight: 600;
+	}
+
+	.row-caption {
+		font-size: 17px;
+		color: var(--muted);
+	}
+
+	@media (max-width: 720px) {
+		.stair-row {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+		}
+	}
+</style>
